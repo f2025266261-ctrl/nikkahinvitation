@@ -11,7 +11,14 @@
   let envelopeOpened = false;
   let scrollUnlocked = false;
   let prefersReducedMotion = false;
+  let isTouchDevice = false;
   let lenis = null;
+  let stopGoldDustCanvasFn = null;
+  const ambientTweens = {
+    roseCorners: [],
+    lanterns: [],
+    fallingPetals: []
+  };
 
   // Audio state (OFF by default; only plays if /assets/music.mp3 exists & user enables it)
   let bgAudio = null;
@@ -20,6 +27,16 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+
+    // Ensure html & body are scroll-locked while the envelope is closed
+    document.documentElement.classList.add('scroll-locked');
+    document.body.classList.add('scroll-locked');
+
+    if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+      gsap.registerPlugin(ScrollTrigger);
+      ScrollTrigger.config({ ignoreMobileResize: true });
+    }
 
     setupGuestPersonalization();
     setupSlotCounterDOM();
@@ -34,8 +51,6 @@
       hidePreloaderImmediate();
       return;
     }
-
-    gsap.registerPlugin(ScrollTrigger);
 
     runCinematicLoader().then(() => {
       initMainExperience();
@@ -128,17 +143,18 @@
   }
 
   /* ========================================================================
-     LENIS SMOOTH SCROLL (Synced with ScrollTrigger & gsap.ticker)
+     LENIS SMOOTH SCROLL (Desktop only; native scroll on touch devices)
      ======================================================================== */
   function initLenisSmoothScroll() {
-    if (lenis || typeof Lenis === 'undefined' || prefersReducedMotion) return;
+    if (lenis || typeof Lenis === 'undefined' || prefersReducedMotion || isTouchDevice) {
+      window.__lenis = null;
+      return;
+    }
 
     lenis = new Lenis({
-      lerp: 0.1,
-      wheelMultiplier: 1,
-      touchMultiplier: 1.5,
+      lerp: 0.15,
       smoothWheel: true,
-      syncTouch: false
+      wheelMultiplier: 1
     });
 
     window.__lenis = lenis;
@@ -162,6 +178,7 @@
     if (scrollUnlocked) return;
     scrollUnlocked = true;
 
+    document.documentElement.classList.remove('scroll-locked');
     document.body.classList.remove('scroll-locked');
     document.documentElement.classList.remove('lenis-stopped');
     window.scrollTo(0, 0);
@@ -301,6 +318,7 @@
         setupFallingRosePetals();
         setupScrollProgressBar();
         setupScrollAnimations();
+        setupAmbientAnimationObserver();
 
         // Call ScrollTrigger.refresh() once after fonts and images load
         ScrollTrigger.refresh();
@@ -325,24 +343,15 @@
   }
 
   /* ========================================================================
-     PERSISTENT PARALLAX LAYERS (Grain, Continuous Rose Corners, Lanterns)
+     PERSISTENT PARALLAX LAYERS (2 translate3d layers on desktop; disabled on touch)
      ======================================================================== */
   function setupPersistentParallaxLayers() {
-    if (prefersReducedMotion) return;
-
-    gsap.to('#parallaxGrainLayer', {
-      y: -55,
-      ease: 'none',
-      scrollTrigger: {
-        trigger: '#invitationMain',
-        start: 'top top',
-        end: 'bottom bottom',
-        scrub: true
-      }
-    });
+    // Disable parallax on touch devices so native scrolling is 100% locked at 60fps
+    if (prefersReducedMotion || isTouchDevice) return;
 
     gsap.to('#persistentLanternsLayer', {
       y: -38,
+      force3D: true,
       ease: 'none',
       scrollTrigger: {
         trigger: '#invitationMain',
@@ -354,6 +363,7 @@
 
     gsap.to('#persistentRosesLayer', {
       y: -22,
+      force3D: true,
       ease: 'none',
       scrollTrigger: {
         trigger: '#invitationMain',
@@ -508,15 +518,20 @@
   function startRoseCornersIdleSway() {
     if (prefersReducedMotion) return;
 
+    ambientTweens.roseCorners.forEach((t) => t.kill());
+    ambientTweens.roseCorners = [];
+
     const corners = ['#roseCornerTL', '#roseCornerTR', '#roseCornerBL', '#roseCornerBR'];
     corners.forEach((selector, idx) => {
-      gsap.to(selector, {
+      const tween = gsap.to(selector, {
         rotation: idx % 2 === 0 ? 3.2 : -3.2,
+        force3D: true,
         duration: 3.2 + idx * 0.35,
         repeat: -1,
         yoyo: true,
         ease: 'sine.inOut'
       });
+      ambientTweens.roseCorners.push(tween);
     });
   }
 
@@ -539,6 +554,11 @@
       waxSealBtn.disabled = true;
       waxSealBtn.classList.add('is-cracking');
       if (tapToOpenText) tapToOpenText.disabled = true;
+
+      // Stop the gold-dust canvas completely once the envelope opens
+      if (typeof stopGoldDustCanvasFn === 'function') {
+        stopGoldDustCanvasFn();
+      }
 
       authorizeAndPlayMusicOnTap();
 
@@ -899,22 +919,26 @@
         0.77
       );
 
-    // Pinned scene (capped to +=100% scroll length) with parallax petals drifting behind
-    ScrollTrigger.create({
-      trigger: '#coupleSection',
-      start: 'top top',
-      end: '+=100%',
-      pin: true,
-      pinSpacing: true,
-      scrub: 0.6,
-      onUpdate: (self) => {
-        const p = self.progress;
-        gsap.set('.couple-parallax-petal', {
-          y: (i) => (i % 2 === 0 ? -90 * p : 80 * p),
-          rotation: (i) => (i % 2 === 0 ? 75 * p : -75 * p)
-        });
-      }
-    });
+    // Pinned scene on desktop only (capped to +=100% scroll length, scrub: true);
+    // on touch devices, skip pinning and parallax scrub so native touch scrolling is instant.
+    if (!isTouchDevice) {
+      ScrollTrigger.create({
+        trigger: '#coupleSection',
+        start: 'top top',
+        end: '+=100%',
+        pin: true,
+        pinSpacing: true,
+        scrub: true,
+        onUpdate: (self) => {
+          const p = self.progress;
+          gsap.set('.couple-parallax-petal', {
+            y: (i) => (i % 2 === 0 ? -90 * p : 80 * p),
+            rotation: (i) => (i % 2 === 0 ? 75 * p : -75 * p),
+            force3D: true
+          });
+        }
+      });
+    }
 
     // ----------------------------------------------------------------------
     // 3. DATE & TIME SECTION:
@@ -1366,7 +1390,8 @@
   }
 
   /* ========================================================================
-     HTML5 CANVAS GOLD DUST PARTICLES (Max 40 particles, pauses when tab hidden)
+     HTML5 CANVAS GOLD DUST PARTICLES
+     Max 15 particles on mobile; stops completely after the envelope opens.
      ======================================================================== */
   function setupGoldDustCanvas() {
     const canvas = document.getElementById('goldDustCanvas');
@@ -1378,10 +1403,13 @@
     let width = 0;
     let height = 0;
     let rafId = null;
-    const MAX_PARTICLES = 24;
+    let stopped = false;
+    window.__goldDustStopped = false;
+    const MAX_PARTICLES = 15;
     const particles = [];
 
     function resize() {
+      if (stopped) return;
       const shell = document.getElementById('invitationShell');
       width = shell ? shell.clientWidth : Math.min(window.innerWidth, 430);
       height = window.innerHeight;
@@ -1407,7 +1435,7 @@
     }
 
     function render() {
-      if (document.hidden) {
+      if (stopped || document.hidden) {
         rafId = null;
         return;
       }
@@ -1437,7 +1465,8 @@
       rafId = requestAnimationFrame(render);
     }
 
-    document.addEventListener('visibilitychange', () => {
+    function onVisibilityChange() {
+      if (stopped) return;
       if (document.hidden) {
         if (rafId) {
           cancelAnimationFrame(rafId);
@@ -1446,7 +1475,28 @@
       } else if (!rafId) {
         rafId = requestAnimationFrame(render);
       }
-    });
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    stopGoldDustCanvasFn = () => {
+      if (stopped) return;
+      stopped = true;
+      window.__goldDustStopped = true;
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      window.removeEventListener('resize', resize);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      ctx.clearRect(0, 0, width, height);
+      canvas.style.display = 'none';
+    };
+
+    if (envelopeOpened) {
+      stopGoldDustCanvasFn();
+      return;
+    }
 
     rafId = requestAnimationFrame(render);
   }
@@ -1457,27 +1507,32 @@
   function setupLanternSway() {
     if (prefersReducedMotion) return;
 
+    ambientTweens.lanterns.forEach((t) => t.kill());
+    ambientTweens.lanterns = [];
+
     const lanterns = document.querySelectorAll('.lantern');
     lanterns.forEach((lantern, idx) => {
       const angle = idx % 2 === 0 ? 3.4 : -3.4;
       const duration = 2.7 + (idx % 3) * 0.45;
 
-      gsap.fromTo(
+      const tween = gsap.fromTo(
         lantern,
         { rotation: -angle },
         {
           rotation: angle,
+          force3D: true,
           duration: duration,
           repeat: -1,
           yoyo: true,
           ease: 'sine.inOut'
         }
       );
+      ambientTweens.lanterns.push(tween);
     });
   }
 
   function setupLanternParallax() {
-    if (prefersReducedMotion) return;
+    if (prefersReducedMotion || isTouchDevice) return;
 
     const parallaxNodes = document.querySelectorAll('.parallax-lantern-wrap');
     if (!parallaxNodes.length) return;
@@ -1503,31 +1558,17 @@
       },
       { passive: true }
     );
-
-    window.addEventListener(
-      'deviceorientation',
-      (e) => {
-        if (e.gamma === null || e.beta === null) return;
-        const nx = Math.max(-1, Math.min(1, e.gamma / 30));
-        const ny = Math.max(-1, Math.min(1, (e.beta - 45) / 30));
-        setters.forEach((s) => {
-          s.xTo(nx * 12 * s.depth);
-          s.yTo(ny * 8 * s.depth);
-        });
-      },
-      { passive: true }
-    );
   }
 
   /* ========================================================================
-     COUPLE PARALLAX ROSE PETALS & CLOSING FALLING ROSE PETALS (Max 25)
+     COUPLE PARALLAX ROSE PETALS & CLOSING FALLING ROSE PETALS (Capped at 12)
      ======================================================================== */
   function setupCoupleParallaxPetals() {
     const backdrop = document.getElementById('couplePetalsBackdrop');
     if (!backdrop || prefersReducedMotion) return;
     backdrop.innerHTML = '';
 
-    const count = 10;
+    const count = 8;
     const svgNS = 'http://www.w3.org/2000/svg';
     const colors = ['#D49B9E', '#E6B8BB', '#C47D85', '#F2D4D7'];
 
@@ -1535,7 +1576,7 @@
       const svg = document.createElementNS(svgNS, 'svg');
       svg.setAttribute('viewBox', '0 0 20 26');
       svg.classList.add('couple-parallax-petal');
-      svg.style.left = `${(i * 9.5 + 6) % 90}%`;
+      svg.style.left = `${(i * 11.5 + 6) % 90}%`;
       svg.style.top = `${(i * 13 + 10) % 85}%`;
 
       const path = document.createElementNS(svgNS, 'path');
@@ -1549,11 +1590,14 @@
   function setupFallingRosePetals() {
     if (prefersReducedMotion) return;
 
+    ambientTweens.fallingPetals.forEach((t) => t.kill());
+    ambientTweens.fallingPetals = [];
+
     const layer = document.getElementById('fallingPetalsLayer');
     if (!layer) return;
     layer.innerHTML = '';
 
-    const petalCount = 14; // Capped for 60fps on mid-range mobile (<= 25 max)
+    const petalCount = 12; // Capped at 12 petals max
     const petalColors = ['#D49B9E', '#E6B8BB', '#C47D85', '#F2D4D7'];
     const svgNS = 'http://www.w3.org/2000/svg';
 
@@ -1561,7 +1605,7 @@
       const petalSvg = document.createElementNS(svgNS, 'svg');
       petalSvg.setAttribute('viewBox', '0 0 20 26');
       petalSvg.classList.add('rose-petal');
-      petalSvg.style.left = `${(i * 6.8 + 4) % 94}%`;
+      petalSvg.style.left = `${(i * 7.8 + 4) % 94}%`;
 
       const path = document.createElementNS(svgNS, 'path');
       path.setAttribute(
@@ -1573,7 +1617,7 @@
       petalSvg.appendChild(path);
       layer.appendChild(petalSvg);
 
-      gsap.fromTo(
+      const tween = gsap.fromTo(
         petalSvg,
         {
           y: -30,
@@ -1586,13 +1630,87 @@
           x: (i % 2 === 0 ? 1 : -1) * (28 + (i % 4) * 10),
           rotation: 120 + (i % 4) * 35,
           opacity: 0.82,
+          force3D: true,
           duration: 6.2 + (i % 5) * 1.1,
           repeat: -1,
           delay: i * 0.35,
-          ease: 'sine.inOut'
+          ease: 'sine.inOut',
+          paused: true
         }
       );
+      ambientTweens.fallingPetals.push(tween);
     }
+  }
+
+  /* ========================================================================
+     INTERSECTION OBSERVER & SCROLL-IDLE PAUSING FOR AMBIENT ANIMATIONS
+     Pauses off-screen CSS/GSAP ambient animations and pauses ambient tweens
+     while actively scrolling so 100% of frame budget goes to smooth scroll.
+     ======================================================================== */
+  function setupAmbientAnimationObserver() {
+    if (prefersReducedMotion || typeof IntersectionObserver === 'undefined') return;
+
+    let closingVisible = false;
+    let isActivelyScrolling = false;
+    let scrollIdleTimer = null;
+
+    function syncAmbientPlayState() {
+      const pauseAmbient = isActivelyScrolling || document.hidden;
+
+      ambientTweens.roseCorners.forEach((t) => {
+        if (pauseAmbient) t.pause();
+        else t.resume();
+      });
+
+      ambientTweens.lanterns.forEach((t) => {
+        if (pauseAmbient) t.pause();
+        else t.resume();
+      });
+
+      ambientTweens.fallingPetals.forEach((t) => {
+        if (pauseAmbient || !closingVisible) t.pause();
+        else t.resume();
+      });
+    }
+
+    const sectionObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const el = entry.target;
+          if (entry.isIntersecting) {
+            el.classList.remove('is-offscreen');
+          } else {
+            el.classList.add('is-offscreen');
+          }
+
+          if (el.id === 'closingSection') {
+            closingVisible = entry.isIntersecting;
+            syncAmbientPlayState();
+          }
+        });
+      },
+      { rootMargin: '100px 0px' }
+    );
+
+    document.querySelectorAll('.section').forEach((sec) => {
+      sectionObserver.observe(sec);
+    });
+
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (!isActivelyScrolling) {
+          isActivelyScrolling = true;
+          syncAmbientPlayState();
+        }
+        if (scrollIdleTimer) clearTimeout(scrollIdleTimer);
+        scrollIdleTimer = setTimeout(() => {
+          isActivelyScrolling = false;
+          syncAmbientPlayState();
+        }, 140);
+      },
+      { passive: true }
+    );
   }
 
   /* ========================================================================
@@ -1604,12 +1722,13 @@
 
     gsap.to(bar, {
       scaleX: 1,
+      force3D: true,
       ease: 'none',
       scrollTrigger: {
         trigger: document.documentElement,
         start: 'top top',
         end: 'bottom bottom',
-        scrub: 0.15
+        scrub: true
       }
     });
   }

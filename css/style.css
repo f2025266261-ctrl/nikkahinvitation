@@ -84,6 +84,7 @@ body {
   position: relative;
 }
 
+html.scroll-locked,
 body.scroll-locked {
   overflow: hidden;
 }
@@ -269,7 +270,7 @@ body.scroll-locked {
 
 .parallax-grain-layer {
   position: absolute;
-  inset: -15% 0;
+  inset: 0;
   background-image:
     radial-gradient(rgba(155, 45, 74, 0.04) 1px, transparent 0),
     radial-gradient(rgba(201, 162, 75, 0.06) 1px, transparent 0);
@@ -788,6 +789,18 @@ body.scroll-locked {
   position: relative;
   padding: clamp(2.4rem, 6vh, 3.5rem) clamp(0.85rem, 3.5vw, 1.15rem);
   text-align: center;
+  contain: layout paint style;
+}
+
+.section:not(.hero-arch-section) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 100dvh;
+}
+
+.section.is-offscreen *,
+.section.is-offscreen *::before,
+.section.is-offscreen *::after {
+  animation-play-state: paused !important;
 }
 
 .full-screen-section {
@@ -1121,16 +1134,13 @@ body.scroll-locked {
     110deg,
     var(--burgundy-dark) 0%,
     var(--burgundy) 30%,
-    #F2DF9F 48%,
-    var(--gold) 54%,
+    #C9A24B 50%,
     var(--burgundy) 70%,
     var(--burgundy-dark) 100%
   );
-  background-size: 240% auto;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: scriptShimmer 5s linear infinite;
 }
 
 .invite-daughter {
@@ -1199,27 +1209,15 @@ body.scroll-locked {
   background: linear-gradient(
     110deg,
     var(--burgundy-dark) 0%,
-    var(--burgundy) 34%,
-    #F2DF9F 49%,
-    var(--gold) 54%,
+    var(--burgundy) 36%,
+    #C9A24B 52%,
     var(--burgundy) 68%,
     var(--burgundy-dark) 100%
   );
-  background-size: 220% auto;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: scriptShimmer 6s linear infinite;
   padding: 0 0.15em;
-}
-
-@keyframes scriptShimmer {
-  0% {
-    background-position: 200% center;
-  }
-  100% {
-    background-position: -200% center;
-  }
 }
 
 .couple-divider {
@@ -1649,7 +1647,6 @@ body.scroll-locked {
   height: 50px;
   position: relative;
   z-index: 2;
-  filter: drop-shadow(0 4px 8px rgba(114, 27, 51, 0.32));
 }
 
 .map-pin-pulse {

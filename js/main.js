@@ -9,6 +9,7 @@
   const TARGET_ISO_DATE = '2026-11-21T14:00:00+05:00';
 
   let envelopeOpened = false;
+  let scrollUnlocked = false;
   let prefersReducedMotion = false;
   let lenis = null;
 
@@ -130,16 +131,19 @@
      LENIS SMOOTH SCROLL (Synced with ScrollTrigger & gsap.ticker)
      ======================================================================== */
   function initLenisSmoothScroll() {
-    if (typeof Lenis === 'undefined' || prefersReducedMotion) return;
+    if (lenis || typeof Lenis === 'undefined' || prefersReducedMotion) return;
 
     lenis = new Lenis({
-      duration: 1.15,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      lerp: 0.1,
+      wheelMultiplier: 1,
+      touchMultiplier: 1.5,
       smoothWheel: true,
       syncTouch: false
     });
 
-    // Locked initially until the envelope opens
+    window.__lenis = lenis;
+
+    // Locked initially while the envelope is closed
     lenis.stop();
 
     if (typeof ScrollTrigger !== 'undefined') {
@@ -155,11 +159,17 @@
   }
 
   function unlockScroll() {
+    if (scrollUnlocked) return;
+    scrollUnlocked = true;
+
     document.body.classList.remove('scroll-locked');
+    document.documentElement.classList.remove('lenis-stopped');
     window.scrollTo(0, 0);
     if (lenis) {
       lenis.start();
-      lenis.scrollTo(0, { immediate: true });
+      if (typeof lenis.resize === 'function') {
+        lenis.resize();
+      }
     }
   }
 
@@ -202,7 +212,10 @@
           gsap.to(preloader, {
             opacity: 0,
             duration: 0.35,
-            onComplete: () => preloader.classList.add('is-hidden')
+            onComplete: () => {
+              preloader.classList.add('is-hidden');
+              preloader.style.display = 'none';
+            }
           });
         }
       });
@@ -248,6 +261,7 @@
           ease: 'power2.inOut',
           onComplete: () => {
             preloader.classList.add('is-hidden');
+            preloader.style.display = 'none';
             resolve();
           }
         });
@@ -257,7 +271,10 @@
 
   function hidePreloaderImmediate() {
     const preloader = document.getElementById('preloader');
-    if (preloader) preloader.classList.add('is-hidden');
+    if (preloader) {
+      preloader.classList.add('is-hidden');
+      preloader.style.display = 'none';
+    }
   }
 
   /* ========================================================================
@@ -285,6 +302,7 @@
         setupScrollProgressBar();
         setupScrollAnimations();
 
+        // Call ScrollTrigger.refresh() once after fonts and images load
         ScrollTrigger.refresh();
       }
     );
@@ -298,16 +316,12 @@
         const target = document.getElementById('invitationSection');
         if (!target) return;
         if (lenis) {
-          lenis.scrollTo(target, { duration: 1.15 });
+          lenis.scrollTo(target, { duration: 1.1 });
         } else {
           target.scrollIntoView({ behavior: 'smooth' });
         }
       });
     }
-
-    window.addEventListener('load', () => {
-      ScrollTrigger.refresh();
-    });
   }
 
   /* ========================================================================
@@ -521,6 +535,7 @@
       if (envelopeOpened) return;
       envelopeOpened = true;
 
+      envelopeStage.style.pointerEvents = 'none';
       waxSealBtn.disabled = true;
       waxSealBtn.classList.add('is-cracking');
       if (tapToOpenText) tapToOpenText.disabled = true;
@@ -528,14 +543,15 @@
       authorizeAndPlayMusicOnTap();
 
       if (prefersReducedMotion) {
+        unlockScroll();
         gsap.to(envelopeStage, {
           opacity: 0,
           duration: 0.35,
           onComplete: () => {
             envelopeStage.classList.add('is-dismissed');
+            envelopeStage.style.display = 'none';
             envelopeStage.setAttribute('aria-hidden', 'true');
-            unlockScroll();
-            ScrollTrigger.refresh();
+            envelopeStage.remove();
           }
         });
         return;
@@ -636,24 +652,25 @@
           1.55
         )
         .add(() => {
+          unlockScroll();
           triggerOpeningBurst();
           playHeroArchEntrance();
-        }, 1.65)
+        }, 1.55)
         .to(
           envelopeStage,
           {
             opacity: 0,
-            duration: 0.65,
+            duration: 0.55,
             ease: 'power2.out',
             onComplete: () => {
               clearTempWillChange(envelopeEls);
               envelopeStage.classList.add('is-dismissed');
+              envelopeStage.style.display = 'none';
               envelopeStage.setAttribute('aria-hidden', 'true');
-              unlockScroll();
-              ScrollTrigger.refresh();
+              envelopeStage.remove();
             }
           },
-          1.72
+          1.62
         );
     };
 
@@ -752,7 +769,7 @@
       onComplete: () => clearTempWillChange(inviteEls),
       scrollTrigger: {
         trigger: '#invitationSection',
-        start: 'top 76%',
+        start: 'top 90%',
         toggleActions: 'play none none none',
         once: true
       }
@@ -882,11 +899,11 @@
         0.77
       );
 
-    // Pinned scene (~150% scroll length) with parallax petals drifting behind
+    // Pinned scene (capped to +=100% scroll length) with parallax petals drifting behind
     ScrollTrigger.create({
       trigger: '#coupleSection',
       start: 'top top',
-      end: '+=150%',
+      end: '+=100%',
       pin: true,
       pinSpacing: true,
       scrub: 0.6,

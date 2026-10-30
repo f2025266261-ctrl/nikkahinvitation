@@ -51,7 +51,6 @@
 }
 
 html {
-  overflow-x: hidden;
   background-color: var(--bg-desktop-stage);
   -webkit-text-size-adjust: 100%;
 }
@@ -65,6 +64,11 @@ html.lenis body {
   scroll-behavior: auto !important;
 }
 
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis-stopped,
 .lenis.lenis-stopped {
   overflow: hidden;
 }
@@ -73,7 +77,7 @@ body {
   font-family: var(--font-body);
   color: var(--burgundy);
   background-color: var(--bg-parchment);
-  overflow-x: hidden;
+  overflow-x: clip;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -82,9 +86,6 @@ body {
 
 body.scroll-locked {
   overflow: hidden;
-  height: 100vh;
-  height: 100dvh;
-  touch-action: none;
 }
 
 /* ==========================================================================
@@ -161,12 +162,14 @@ body.scroll-locked {
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: none;
 }
 
 .preloader.is-hidden {
+  display: none !important;
   opacity: 0;
   visibility: hidden;
-  pointer-events: none;
+  pointer-events: none !important;
 }
 
 .preloader-inner {
@@ -231,7 +234,7 @@ body.scroll-locked {
   min-height: 100dvh;
   margin: 0 auto;
   position: relative;
-  overflow-x: hidden;
+  overflow-x: clip;
   background-color: var(--bg-parchment);
   background-image:
     radial-gradient(circle at 50% 15%, rgba(255, 253, 248, 0.92) 0%, rgba(250, 245, 236, 0.4) 55%, rgba(240, 228, 208, 0.65) 100%);
@@ -259,7 +262,7 @@ body.scroll-locked {
   max-width: var(--phone-max-width);
   height: 100vh;
   height: 100dvh;
-  pointer-events: none;
+  pointer-events: none !important;
   z-index: 25;
   overflow: hidden;
 }
@@ -272,7 +275,7 @@ body.scroll-locked {
     radial-gradient(rgba(201, 162, 75, 0.06) 1px, transparent 0);
   background-size: 24px 24px;
   background-position: 0 0, 12px 12px;
-  will-change: transform;
+  pointer-events: none !important;
 }
 
 .persistent-lanterns-layer {
@@ -281,7 +284,7 @@ body.scroll-locked {
   left: 0;
   width: 100%;
   height: 130px;
-  will-change: transform;
+  pointer-events: none !important;
 }
 
 .p-lantern-left {
@@ -325,7 +328,7 @@ body.scroll-locked {
   inset: 0;
   width: 100%;
   height: 100%;
-  will-change: transform;
+  pointer-events: none !important;
 }
 
 /* Corner Rose Wrappers — Responsive clamp() sizing to avoid overlap on 360x740 */
@@ -333,7 +336,7 @@ body.scroll-locked {
   position: absolute;
   width: clamp(74px, 21vw, 90px);
   height: clamp(74px, 21vw, 90px);
-  pointer-events: none;
+  pointer-events: none !important;
 }
 
 .arch-rose-svg {
@@ -391,7 +394,7 @@ body.scroll-locked {
   max-width: var(--phone-max-width);
   height: 100vh;
   height: 100dvh;
-  pointer-events: none;
+  pointer-events: none !important;
   z-index: 120;
 }
 
@@ -404,7 +407,7 @@ body.scroll-locked {
   max-width: var(--phone-max-width);
   height: 100vh;
   height: 100dvh;
-  pointer-events: none;
+  pointer-events: none !important;
   z-index: 150;
   overflow: hidden;
 }
@@ -413,7 +416,7 @@ body.scroll-locked {
   position: absolute;
   top: 50%;
   left: 50%;
-  pointer-events: none;
+  pointer-events: none !important;
 }
 
 /* ==========================================================================
@@ -439,7 +442,8 @@ body.scroll-locked {
 }
 
 .envelope-stage.is-dismissed {
-  pointer-events: none;
+  display: none !important;
+  pointer-events: none !important;
   visibility: hidden;
 }
 
@@ -834,21 +838,32 @@ body.scroll-locked {
 }
 
 /* ==========================================================================
-   HERO SECTION (100dvh)
+   HERO SECTION (100dvh — Exact Height, Vertically Centered Inside Arch)
    ========================================================================== */
 .hero-arch-section {
-  padding: clamp(0.8rem, 2vh, 1.2rem) clamp(0.55rem, 2vw, 0.65rem);
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  padding: 0.6rem 0.55rem;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .mosque-arch-wrapper {
   position: relative;
+  flex: 1;
   width: 100%;
-  min-height: 80vh;
-  min-height: 80dvh;
-  padding: clamp(4.2rem, 10vh, 5.4rem) clamp(0.9rem, 3.5vw, 1.15rem) clamp(1.6rem, 4vh, 2.2rem);
+  height: 100%;
+  min-height: 0;
+  padding: clamp(2.2rem, 5vh, 3rem) clamp(0.85rem, 3vw, 1.1rem) clamp(1rem, 2.5vh, 1.4rem);
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
   z-index: 2;
 }
@@ -865,10 +880,12 @@ body.scroll-locked {
 .arch-inner-content {
   position: relative;
   z-index: 5;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(0.95rem, 2.5vh, 1.35rem);
+  justify-content: center;
+  gap: clamp(0.75rem, 2vh, 1.1rem);
 }
 
 .hero-crest-badge {
@@ -878,13 +895,13 @@ body.scroll-locked {
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--gold-dark);
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.2rem;
 }
 
 .bismillah-glow-wrap {
   position: relative;
   display: inline-block;
-  padding: 0.25rem 0.5rem;
+  padding: 0.2rem 0.5rem;
 }
 
 .bismillah-arabic {
@@ -908,7 +925,7 @@ body.scroll-locked {
 .mini-gold-divider {
   width: clamp(165px, 48vw, 190px);
   height: 18px;
-  margin: 0.35rem auto 0;
+  margin: 0.3rem auto 0;
   display: block;
 }
 
@@ -935,7 +952,7 @@ body.scroll-locked {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: clamp(0.85rem, 2.2vh, 1.1rem) clamp(1.4rem, 5vw, 1.8rem);
+  padding: clamp(0.9rem, 2.2vh, 1.15rem) clamp(1.5rem, 5.2vw, 1.9rem) clamp(0.95rem, 2.3vh, 1.2rem);
   border-radius: 999px;
   border: 1.2px solid var(--gold);
   background: rgba(255, 253, 249, 0.88);
@@ -946,7 +963,7 @@ body.scroll-locked {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
   object-fit: cover;
 }
 
@@ -954,7 +971,8 @@ body.scroll-locked {
   font-family: var(--font-script);
   font-size: clamp(2.15rem, 8.5vw, 2.55rem);
   color: var(--burgundy);
-  line-height: 1.08;
+  line-height: 1.28;
+  padding-bottom: 0.3rem;
 }
 
 .medallion-sub {
@@ -963,7 +981,7 @@ body.scroll-locked {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--gold-dark);
-  margin-top: 0.15rem;
+  margin-top: 0.65rem;
 }
 
 .scroll-hint {

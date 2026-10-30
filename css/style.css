@@ -1908,7 +1908,7 @@ body.scroll-locked {
 }
 
 /* ==========================================================================
-   7. CLOSING SECTION (100dvh — Word-by-Word Quote, Petals, WhatsApp RSVP)
+   7. CLOSING SECTION (100dvh — Word-by-Word Quote, Family Blessing, Petals)
    ========================================================================== */
 .closing-section {
   border-top: 1px solid rgba(201, 162, 75, 0.28);
@@ -1944,17 +1944,17 @@ body.scroll-locked {
 .closing-ornament-top {
   width: 195px;
   height: 20px;
-  margin-bottom: 1.1rem;
+  margin-bottom: 1.5rem;
 }
 
 .closing-quote {
   font-family: var(--font-heading);
   font-style: italic;
-  font-size: clamp(1.24rem, 5.2vw, 1.56rem);
-  line-height: 1.52;
+  font-size: clamp(1.28rem, 5.4vw, 1.6rem);
+  line-height: 1.56;
   color: var(--burgundy);
   max-width: 320px;
-  margin: 0 auto 1.25rem;
+  margin: 0 auto 1.65rem;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -1968,42 +1968,11 @@ body.scroll-locked {
 
 .closing-family {
   font-family: var(--font-body);
-  font-size: clamp(1.06rem, 4.4vw, 1.16rem);
+  font-size: clamp(1.08rem, 4.5vw, 1.18rem);
   font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--gold-dark);
-  margin-bottom: 1.35rem;
-}
-
-.whatsapp-rsvp-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  min-height: 46px;
-  padding: 0.65rem 1.4rem;
-  margin-bottom: 1.45rem;
-  border-radius: 999px;
-  border: 1.5px solid var(--gold);
-  background: linear-gradient(135deg, var(--burgundy) 0%, var(--burgundy-dark) 100%);
-  color: #FFFDF9;
-  font-family: var(--font-body);
-  font-size: 0.98rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-decoration: none;
-  box-shadow: 0 6px 16px rgba(155, 45, 74, 0.24);
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.25s ease;
-}
-
-.whatsapp-rsvp-btn .btn-icon-svg {
-  color: var(--gold-light);
-}
-
-.whatsapp-rsvp-btn:hover,
-.whatsapp-rsvp-btn:focus-visible {
-  transform: translateY(-2px);
+  margin-bottom: 1.9rem;
 }
 
 .closing-monogram-seal {

@@ -1,17 +1,12 @@
 /**
  * Yashfa Ali & Zain Saleem — Nikkah Wedding Invitation
  * Complete Mobile-First GSAP + ScrollTrigger + Lenis Experience
- *
- * TODO: Update RSVP_WHATSAPP_NUMBER below (and in index.html #rsvpWhatsappBtn)
- * with the host family's real WhatsApp phone number in international format.
  */
 
 (function () {
   'use strict';
 
   const TARGET_ISO_DATE = '2026-11-21T14:00:00+05:00';
-  // TODO: Replace placeholder phone number with the real WhatsApp number for RSVPs
-  const RSVP_WHATSAPP_NUMBER = '923000000000';
 
   let envelopeOpened = false;
   let prefersReducedMotion = false;
@@ -26,7 +21,6 @@
     prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     setupGuestPersonalization();
-    setupWhatsAppLink();
     setupSlotCounterDOM();
     setupButtonGoldRippleAndCardLift();
     setupSaveTheDateICS();
@@ -79,15 +73,6 @@
     } catch (_) {
       greetingEl.hidden = true;
     }
-  }
-
-  function setupWhatsAppLink() {
-    const btn = document.getElementById('rsvpWhatsappBtn');
-    if (!btn) return;
-    const msg = encodeURIComponent(
-      'Assalamu Alaikum! We are delighted to RSVP for the Nikkah of Yashfa Ali & Zain Saleem on 21st November 2026.'
-    );
-    btn.href = `https://wa.me/${RSVP_WHATSAPP_NUMBER}?text=${msg}`;
   }
 
   /* ========================================================================
@@ -1122,12 +1107,12 @@
 
     // ----------------------------------------------------------------------
     // 7. CLOSING SECTION:
-    //    Word-by-word quote with gold glow, family line, WhatsApp RSVP button
+    //    Word-by-word quote with gold glow, family line, monogram seal
     // ----------------------------------------------------------------------
     gsap.set('.quote-word', { opacity: 0, y: 14 });
-    gsap.set(['#closingFamily', '#rsvpWhatsappBtn', '#closingSeal'], { opacity: 0, y: 18 });
+    gsap.set(['#closingFamily', '#closingSeal'], { opacity: 0, y: 18 });
 
-    const closingEls = ['.quote-word', '#closingFamily', '#rsvpWhatsappBtn', '#closingSeal'];
+    const closingEls = ['.quote-word', '#closingFamily', '#closingSeal'];
     const closingTl = gsap.timeline({
       onStart: () => setTempWillChange(closingEls, 'transform, opacity'),
       onComplete: () => clearTempWillChange(closingEls),
@@ -1158,16 +1143,6 @@
         '-=0.15'
       )
       .to(
-        '#rsvpWhatsappBtn',
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.55,
-          ease: 'back.out(1.5)'
-        },
-        '-=0.25'
-      )
-      .to(
         '#closingSeal',
         {
           opacity: 1,
@@ -1175,7 +1150,7 @@
           duration: 0.55,
           ease: 'back.out(1.6)'
         },
-        '-=0.3'
+        '-=0.25'
       );
   }
 

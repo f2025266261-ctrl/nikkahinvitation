@@ -18,7 +18,7 @@ Built with plain HTML, CSS, and JavaScript, powered by **GSAP + ScrollTrigger** 
   5. **Countdown**: Live PKT countdown (`2026-11-21T14:00:00+05:00`) with `tabular-nums`, visibility pause/resync, and a **"Save the date"** `.ics` calendar download.
   6. **Venue Reveal**: Parting gold-bordered curtain, bouncing location pin with ripple rings, **"Open in Google Maps"** primary CTA, and **"Copy address"** secondary button.
   7. **Dress Code**: Tall arch-shaped *For Her* & *For Him* cards with stroke-drawn attire illustrations and 6 popping color swatches.
-  8. **Closing**: Word-by-word blessing quote, falling rose petals, and **"RSVP on WhatsApp"** CTA.
+  8. **Closing**: Word-by-word blessing quote, family sign-off, monogram seal, and falling rose petals.
 - **Guest Personalization**: Append `?guest=Your+Guest+Name` to the URL (e.g. `https://your-domain.vercel.app/?guest=Amina+%26+Family`) to display a sanitized `"Dear Amina & Family,"` greeting.
 - **Optional Background Music**: Drop an audio file at `public/assets/music.mp3` to automatically enable the bottom-right gold speaker toggle (remains hidden if the file is absent).
 
@@ -59,6 +59,5 @@ npx vercel --prod
 
 ## Customization Checklist Before Sharing
 
-- **WhatsApp RSVP Phone Number**: Replace the placeholder `923000000000` in `js/main.js` (`RSVP_WHATSAPP_NUMBER`) and `index.html` (`#rsvpWhatsappBtn`) with the family's real WhatsApp number.
 - **Optional Audio**: Place an `.mp3` file at `public/assets/music.mp3` if background audio is desired.
 

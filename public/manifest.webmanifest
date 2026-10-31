@@ -4,8 +4,8 @@
   "description": "Mr. & Mrs. Asghar Bashir invite you to the Nikkah of beloved daughter Yashfa Ali with Zain Saleem on 21st November, 2026 at 2:00 PM in Lahore.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FAF5EC",
-  "theme_color": "#F5E9D7",
+  "background_color": "#F6DAD6",
+  "theme_color": "#F6DAD6",
   "icons": [
     {
       "src": "/favicon.svg",
@@ -20,4 +20,3 @@
     }
   ]
 }
-

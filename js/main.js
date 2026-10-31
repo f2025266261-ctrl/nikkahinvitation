@@ -1,6 +1,6 @@
 /**
- * Yashfa Ali & Zain Saleem — Nikkah Wedding Invitation
- * Complete Mobile-First GSAP + ScrollTrigger + Lenis Experience
+ * Yashfa Ali & Zain Saleem — Blush-Pink Pearl Nikkah Wedding Invitation
+ * 100% Native Scroll Architecture · Single IntersectionObserver · Zero Lenis/ScrollTrigger
  */
 
 (function () {
@@ -9,52 +9,37 @@
   const TARGET_ISO_DATE = '2026-11-21T14:00:00+05:00';
 
   let envelopeOpened = false;
-  let scrollUnlocked = false;
   let prefersReducedMotion = false;
-  let isTouchDevice = false;
-  let lenis = null;
-  let stopGoldDustCanvasFn = null;
-  const ambientTweens = {
-    roseCorners: [],
-    lanterns: [],
-    fallingPetals: []
-  };
 
   // Audio state (OFF by default; only plays if /assets/music.mp3 exists & user enables it)
   let bgAudio = null;
   let musicAvailable = false;
   let musicEnabledByUser = false;
 
+  // Expose flags for automated QA & profiling
+  window.__lenis = null;
+  if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
+    window.scrollTo(0, 0);
     prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 
-    // Ensure html & body are scroll-locked while the envelope is closed
-    document.documentElement.classList.add('scroll-locked');
-    document.body.classList.add('scroll-locked');
-
-    if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
-      gsap.registerPlugin(ScrollTrigger);
-      ScrollTrigger.config({ ignoreMobileResize: true });
-    }
+    // Lock scroll during the blush envelope intro using ONLY html.locked
+    document.documentElement.classList.add('locked');
 
     setupGuestPersonalization();
-    setupSlotCounterDOM();
-    setupButtonGoldRippleAndCardLift();
     setupSaveTheDateICS();
     setupCopyAddressButton();
-    initLenisSmoothScroll();
     setupOptionalMusicToggle();
     setupLiveCountdown();
-
-    if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') {
-      hidePreloaderImmediate();
-      return;
-    }
-
-    runCinematicLoader().then(() => {
-      initMainExperience();
-    });
+    setupScrollingClassDebounce();
+    setupAmbientVisibilityObserver();
+    prepareSectionInitialStates();
+    setupEnvelopeIntro();
+    setupSingleRevealObserver();
+    setupScrollHintLink();
   });
 
   /* ========================================================================
@@ -92,406 +77,312 @@
   }
 
   /* ========================================================================
-     GLOBAL MICRO-INTERACTIONS: Gold Ripple on Button Tap & Card Lift on Touch
+     PASSIVE SCROLL LISTENER WITH 120ms DEBOUNCE
+     Adds html.scrolling while actively scrolling so CSS ambient animations
+     (chandelier sway, crystal twinkle, candle flames, petals) pause completely.
      ======================================================================== */
-  function setupButtonGoldRippleAndCardLift() {
-    const buttons = document.querySelectorAll('.gold-ripple-btn');
-    buttons.forEach((btn) => {
-      btn.addEventListener('pointerdown', (e) => {
-        if (prefersReducedMotion || typeof gsap === 'undefined') return;
-        const rect = btn.getBoundingClientRect();
-        const x = e.clientX ? e.clientX - rect.left : rect.width / 2;
-        const y = e.clientY ? e.clientY - rect.top : rect.height / 2;
+  function setupScrollingClassDebounce() {
+    let scrollTimer = null;
+    const root = document.documentElement;
 
-        const wave = document.createElement('span');
-        wave.className = 'gold-ripple-wave';
-        wave.style.left = `${x}px`;
-        wave.style.top = `${y}px`;
-        btn.appendChild(wave);
-
-        gsap.fromTo(
-          wave,
-          { scale: 0, opacity: 0.85 },
-          {
-            scale: Math.max(rect.width, rect.height) / 8,
-            opacity: 0,
-            duration: 0.65,
-            ease: 'power2.out',
-            onComplete: () => wave.remove()
-          }
-        );
-      });
-    });
-
-    const cards = document.querySelectorAll('.interactive-card');
-    cards.forEach((card) => {
-      card.addEventListener(
-        'touchstart',
-        () => {
-          card.classList.add('is-lifted');
-        },
-        { passive: true }
-      );
-      card.addEventListener(
-        'touchend',
-        () => {
-          setTimeout(() => card.classList.remove('is-lifted'), 260);
-        },
-        { passive: true }
-      );
-    });
-  }
-
-  /* ========================================================================
-     LENIS SMOOTH SCROLL (Desktop only; native scroll on touch devices)
-     ======================================================================== */
-  function initLenisSmoothScroll() {
-    if (lenis || typeof Lenis === 'undefined' || prefersReducedMotion || isTouchDevice) {
-      window.__lenis = null;
-      return;
-    }
-
-    lenis = new Lenis({
-      lerp: 0.15,
-      smoothWheel: true,
-      wheelMultiplier: 1
-    });
-
-    window.__lenis = lenis;
-
-    // Locked initially while the envelope is closed
-    lenis.stop();
-
-    if (typeof ScrollTrigger !== 'undefined') {
-      lenis.on('scroll', ScrollTrigger.update);
-    }
-
-    if (typeof gsap !== 'undefined') {
-      gsap.ticker.add((time) => {
-        lenis.raf(time * 1000);
-      });
-      gsap.ticker.lagSmoothing(0);
-    }
-  }
-
-  function unlockScroll() {
-    if (scrollUnlocked) return;
-    scrollUnlocked = true;
-
-    document.documentElement.classList.remove('scroll-locked');
-    document.body.classList.remove('scroll-locked');
-    document.documentElement.classList.remove('lenis-stopped');
-    window.scrollTo(0, 0);
-    if (lenis) {
-      lenis.start();
-      if (typeof lenis.resize === 'function') {
-        lenis.resize();
-      }
-    }
-  }
-
-  function setTempWillChange(targets, value) {
-    if (typeof gsap === 'undefined') return;
-    gsap.set(targets, { willChange: value || 'transform, opacity' });
-  }
-
-  function clearTempWillChange(targets) {
-    if (typeof gsap === 'undefined') return;
-    gsap.set(targets, { clearProps: 'willChange' });
-  }
-
-  /* ========================================================================
-     LOADER (1–2s): Arch Outline Stroke Draw + "Bismillah" Fade
-     ======================================================================== */
-  function runCinematicLoader() {
-    const preloader = document.getElementById('preloader');
-    const strokePaths = document.querySelectorAll('.preloader-stroke-path');
-    const textWrap = document.getElementById('preloaderTextWrap');
-
-    const fontsReady =
-      document.fonts && document.fonts.ready
-        ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 2000))])
-        : Promise.resolve();
-
-    const windowLoaded =
-      document.readyState === 'complete'
-        ? Promise.resolve()
-        : new Promise((resolve) => {
-            window.addEventListener('load', resolve, { once: true });
-            setTimeout(resolve, 2000);
-          });
-
-    const assetsPromise = Promise.all([fontsReady, windowLoaded]);
-
-    if (prefersReducedMotion || !preloader) {
-      return assetsPromise.then(() => {
-        if (preloader) {
-          gsap.to(preloader, {
-            opacity: 0,
-            duration: 0.35,
-            onComplete: () => {
-              preloader.classList.add('is-hidden');
-              preloader.style.display = 'none';
-            }
-          });
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (!root.classList.contains('scrolling')) {
+          root.classList.add('scrolling');
         }
-      });
-    }
+        if (scrollTimer !== null) {
+          clearTimeout(scrollTimer);
+        }
+        scrollTimer = setTimeout(() => {
+          root.classList.remove('scrolling');
+          scrollTimer = null;
+        }, 120);
+      },
+      { passive: true }
+    );
+  }
 
-    strokePaths.forEach((p) => {
-      try {
-        const len = p.getTotalLength();
-        p.style.strokeDasharray = `${len}`;
-        p.style.strokeDashoffset = `${len}`;
-      } catch (_) {}
-    });
+  /* ========================================================================
+     AMBIENT PLAY/PAUSE OBSERVER
+     Pauses all chandelier sway, crystal twinkle, flame flicker & petal loops
+     when their section is off-screen.
+     ======================================================================== */
+  function setupAmbientVisibilityObserver() {
+    if (typeof IntersectionObserver === 'undefined') return;
 
-    const loaderAnimPromise = new Promise((resolve) => {
-      const tl = gsap.timeline({ onComplete: resolve });
-
-      tl.to(
-        strokePaths,
-        {
-          strokeDashoffset: 0,
-          duration: 1.05,
-          stagger: 0.08,
-          ease: 'power2.out'
-        },
-        0
-      ).to(
-        textWrap,
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.6,
-          ease: 'power2.out'
-        },
-        0.15
-      );
-    });
-
-    return Promise.all([assetsPromise, loaderAnimPromise]).then(() => {
-      return new Promise((resolve) => {
-        gsap.to(preloader, {
-          opacity: 0,
-          duration: 0.5,
-          ease: 'power2.inOut',
-          onComplete: () => {
-            preloader.classList.add('is-hidden');
-            preloader.style.display = 'none';
-            resolve();
+    const ambientObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('section-active');
+          } else {
+            entry.target.classList.remove('section-active');
           }
         });
-      });
-    });
-  }
-
-  function hidePreloaderImmediate() {
-    const preloader = document.getElementById('preloader');
-    if (preloader) {
-      preloader.classList.add('is-hidden');
-      preloader.style.display = 'none';
-    }
-  }
-
-  /* ========================================================================
-     INITIALIZE MAIN EXPERIENCE & GSAP MATCHMEDIA
-     ======================================================================== */
-  function initMainExperience() {
-    const mm = gsap.matchMedia();
-
-    mm.add(
-      {
-        isMobile: '(max-width: 499px)',
-        isDesktop: '(min-width: 500px)',
-        reduceMotion: '(prefers-reduced-motion: reduce)'
       },
-      (context) => {
-        prefersReducedMotion = Boolean(context.conditions.reduceMotion);
-
-        setupHeroInitialStates();
-        setupPersistentParallaxLayers();
-        setupLanternSway();
-        setupLanternParallax();
-        setupGoldDustCanvas();
-        setupCoupleParallaxPetals();
-        setupFallingRosePetals();
-        setupScrollProgressBar();
-        setupScrollAnimations();
-        setupAmbientAnimationObserver();
-
-        // Call ScrollTrigger.refresh() once after fonts and images load
-        ScrollTrigger.refresh();
-      }
+      { threshold: 0.05 }
     );
 
-    setupEnvelopeInteraction();
-
-    const scrollHint = document.getElementById('heroScrollHint');
-    if (scrollHint) {
-      scrollHint.addEventListener('click', (e) => {
-        e.preventDefault();
-        const target = document.getElementById('invitationSection');
-        if (!target) return;
-        if (lenis) {
-          lenis.scrollTo(target, { duration: 1.1 });
-        } else {
-          target.scrollIntoView({ behavior: 'smooth' });
-        }
-      });
-    }
+    const allSections = document.querySelectorAll('.section');
+    allSections.forEach((sec) => ambientObserver.observe(sec));
   }
 
   /* ========================================================================
-     PERSISTENT PARALLAX LAYERS (2 translate3d layers on desktop; disabled on touch)
+     SECTION 0. INTRO: BLUSH ENVELOPE WITH SATIN RIBBON BOW & WAX SEAL (~2.5s)
+     On tap:
+     1. Seal cracks into 2 pieces & fades along with satin ribbon bow
+     2. Envelope top flap opens in 3D (rotateX 180deg)
+     3. Pearl-ivory card slides up and envelope drops away
+     4. Scroll unlocks (html.locked removed) & intro removed from DOM
      ======================================================================== */
-  function setupPersistentParallaxLayers() {
-    // Disable parallax on touch devices so native scrolling is 100% locked at 60fps
-    if (prefersReducedMotion || isTouchDevice) return;
+  function setupEnvelopeIntro() {
+    const envelopeIntro = document.getElementById('envelopeIntro');
+    const envelopeSealBtn = document.getElementById('envelopeSealBtn');
+    const envelopeTapBtn = document.getElementById('envelopeTapBtn');
+    const envelopeStage = document.getElementById('envelopeStage');
 
-    gsap.to('#persistentLanternsLayer', {
-      y: -38,
-      force3D: true,
-      ease: 'none',
-      scrollTrigger: {
-        trigger: '#invitationMain',
-        start: 'top top',
-        end: 'bottom bottom',
-        scrub: true
-      }
-    });
-
-    gsap.to('#persistentRosesLayer', {
-      y: -22,
-      force3D: true,
-      ease: 'none',
-      scrollTrigger: {
-        trigger: '#invitationMain',
-        start: 'top top',
-        end: 'bottom bottom',
-        scrub: true
-      }
-    });
-  }
-
-  /* ========================================================================
-     HERO INITIAL STATES & ENTRANCE TIMELINE
-     ======================================================================== */
-  function setupHeroInitialStates() {
-    const archPaths = document.querySelectorAll('.arch-stroke-path');
-    archPaths.forEach((path) => {
-      try {
-        const len = path.getTotalLength();
-        path.style.strokeDasharray = `${len}`;
-        path.style.strokeDashoffset = prefersReducedMotion ? '0' : `${len}`;
-      } catch (_) {}
-    });
-
-    if (prefersReducedMotion) {
-      gsap.set('#bismillahArabic', { clipPath: 'inset(0 0% 0 0%)', opacity: 1 });
-      gsap.set(['.p-lantern-left', '.p-lantern-center-left', '.p-lantern-center-right', '.p-lantern-right'], {
-        opacity: 1,
-        y: 0
-      });
+    if (!envelopeIntro || !envelopeSealBtn) {
+      unlockAndRemoveIntro(envelopeIntro);
+      playHeroEntrance();
       return;
     }
 
-    gsap.set('#bismillahArabic', {
-      clipPath: 'inset(0 0% 0 100%)',
-      opacity: 0.25
-    });
+    const triggerOpenEnvelope = () => {
+      if (envelopeOpened) return;
+      envelopeOpened = true;
+      prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    gsap.set('#roseCornerTL', { opacity: 0, scale: 0.25, rotation: -18 });
-    gsap.set('#roseCornerTR', { opacity: 0, scale: 0.25, rotation: 18 });
-    gsap.set('#roseCornerBL', { opacity: 0, scale: 0.25, rotation: 18 });
-    gsap.set('#roseCornerBR', { opacity: 0, scale: 0.25, rotation: -18 });
+      envelopeIntro.style.pointerEvents = 'none';
+      envelopeSealBtn.disabled = true;
+      if (envelopeTapBtn) envelopeTapBtn.disabled = true;
 
-    gsap.set(['.p-lantern-left', '.p-lantern-center-left', '.p-lantern-center-right', '.p-lantern-right'], {
-      opacity: 0,
-      y: -85
-    });
+      authorizeAndPlayMusicOnTap();
 
-    gsap.set('#guestGreeting', { opacity: 0, y: 12 });
-    gsap.set('#heroMedallion', { opacity: 0, scale: 0.88, y: 14 });
-    gsap.set('#heroScrollHint', { opacity: 0, y: 12 });
+      if (prefersReducedMotion || typeof gsap === 'undefined') {
+        unlockAndRemoveIntro(envelopeIntro);
+        playHeroEntrance();
+        return;
+      }
+
+      // Stop idle pulse on the wax seal button
+      envelopeSealBtn.style.animation = 'none';
+
+      const tl = gsap.timeline({
+        defaults: { ease: 'power2.inOut' },
+        onComplete: () => {
+          unlockAndRemoveIntro(envelopeIntro);
+        }
+      });
+
+      // 0.00s - 0.45s: Dusty-rose wax seal cracks apart & fades with satin bow
+      tl.to(
+        '#sealHalfLeft',
+        {
+          x: -22,
+          y: 16,
+          rotation: -18,
+          opacity: 0,
+          duration: 0.42,
+          ease: 'power2.in'
+        },
+        0
+      )
+        .to(
+          '#sealHalfRight',
+          {
+            x: 22,
+            y: 18,
+            rotation: 18,
+            opacity: 0,
+            duration: 0.42,
+            ease: 'power2.in'
+          },
+          0
+        )
+        .to(
+          ['#envelopeSatinBow', envelopeTapBtn, '#introTopCaption'],
+          {
+            opacity: 0,
+            y: 8,
+            duration: 0.36,
+            ease: 'power2.in'
+          },
+          0.04
+        )
+        // 0.35s - 1.05s: Envelope top flap opens in 3D (rotateX 180deg)
+        .to(
+          '#envelopeTopFlap',
+          {
+            rotateX: 180,
+            duration: 0.72,
+            ease: 'power2.inOut'
+          },
+          0.35
+        )
+        .set('#envelopeTopFlap', { zIndex: 1 }, 0.72)
+        // 0.90s - 1.75s: Pearl-ivory card slides up while envelope drops away
+        .to(
+          '#envelopeRisingCard',
+          {
+            y: -115,
+            scale: 1.04,
+            duration: 0.82,
+            ease: 'power3.out'
+          },
+          0.9
+        )
+        .to(
+          '#envelopeWrapper',
+          {
+            y: 85,
+            opacity: 0,
+            duration: 0.78,
+            ease: 'power2.in'
+          },
+          1.32
+        )
+        // Start Hero entrance as the envelope drops away
+        .add(() => {
+          playHeroEntrance();
+        }, 1.65)
+        // 1.80s - 2.45s: Fade out intro container and unlock native scroll (~2.5s total)
+        .to(
+          envelopeIntro,
+          {
+            opacity: 0,
+            duration: 0.65,
+            ease: 'power2.out'
+          },
+          1.8
+        );
+    };
+
+    envelopeSealBtn.addEventListener('click', triggerOpenEnvelope);
+    if (envelopeTapBtn) envelopeTapBtn.addEventListener('click', triggerOpenEnvelope);
+    if (envelopeStage) envelopeStage.addEventListener('click', triggerOpenEnvelope);
   }
 
-  function playHeroArchEntrance() {
-    if (prefersReducedMotion) return;
+  function unlockAndRemoveIntro(envelopeIntro) {
+    document.documentElement.classList.remove('locked');
+    window.scrollTo(0, 0);
+    if (envelopeIntro && envelopeIntro.parentNode) {
+      envelopeIntro.remove();
+    }
+  }
 
-    const animatedHeroEls = [
-      '#roseCornerTL',
-      '#roseCornerTR',
-      '#roseCornerBL',
-      '#roseCornerBR',
-      '.p-lantern-left',
-      '.p-lantern-center-left',
-      '.p-lantern-center-right',
-      '.p-lantern-right',
-      '#bismillahArabic',
-      '#guestGreeting',
-      '#heroMedallion',
-      '#heroScrollHint'
-    ];
-    setTempWillChange(animatedHeroEls, 'transform, opacity');
-
-    const tl = gsap.timeline({
-      defaults: { ease: 'power3.out' },
-      onComplete: () => clearTempWillChange(animatedHeroEls)
+  /* ========================================================================
+     PREPARE INITIAL STATES FOR HERO & SECTIONS 2–8
+     ======================================================================== */
+  function prepareSectionInitialStates() {
+    // Prepare one-time SVG stroke-dashoffset using pathLength="100" (zero layout reads)
+    const strokeEls = document.querySelectorAll('.dt-flourish-stroke, .attire-stroke');
+    strokeEls.forEach((el) => {
+      el.style.strokeDasharray = '100';
+      el.style.strokeDashoffset = prefersReducedMotion ? '0' : '100';
     });
 
+    if (typeof gsap === 'undefined') return;
+
+    if (prefersReducedMotion) {
+      gsap.set(
+        [
+          '#invitationSection .invitation-arch-card',
+          '#coupleSection .couple-arch-card',
+          '#dateTimeSection .datetime-pearl-card',
+          '#countdownSection .countdown-grid',
+          '#venueSection .venue-card-stage',
+          '#dressCodeSection .dress-cards',
+          '#closingSection .closing-arch-wrap'
+        ],
+        { opacity: 0 }
+      );
+      return;
+    }
+
+    // 1. HERO initial states
+    gsap.set('#heroChandelier', { opacity: 0, y: -72 });
+    gsap.set('#bismillahWipeMask', { clipPath: 'inset(0 0% 0 100%)', opacity: 0.2 });
+    gsap.set('#guestGreeting', { opacity: 0, y: 12 });
+    gsap.set('#heroMedallion', { opacity: 0, scale: 0.9, y: 14 });
+    gsap.set('#heroScrollHint', { opacity: 0, y: 10 });
+
+    // 2. INVITATION initial states
+    gsap.set('#invitationSection .anim-invite-line', { opacity: 0, y: 18 });
+    gsap.set('#nikkahHeading', { opacity: 0, scale: 0.88 });
+    gsap.set('#invitationSection .leaf-flourish', { scaleX: 0, opacity: 0 });
+    gsap.set('#inviteDaughter', { opacity: 0, y: 14 });
+
+    // 3. NAMES initial states
+    gsap.set('#coupleCandleGlow', { opacity: 0 });
+    gsap.set('#brideName', { opacity: 0, x: -46 });
+    gsap.set('#coupleDivider', { opacity: 0, scale: 0.35 });
+    gsap.set('#groomName', { opacity: 0, x: 46 });
+
+    // 4. DATE & TIME initial states
+    gsap.set('#dateTimeSection .dt-stagger-item', { opacity: 0, y: 20 });
+    gsap.set('#dateTimeSection .dt-flourish-reveal', { opacity: 0, scaleX: 0.2 });
+
+    // 5. COUNTDOWN initial states
+    gsap.set('.countdown-oval-tile', { opacity: 0, y: 22, scale: 0.94 });
+    gsap.set('#saveTheDateBtn', { opacity: 0, y: 14 });
+
+    // 6. VENUE initial states
+    gsap.set('#mapPin', { opacity: 0, y: -54, scale: 0.82 });
+    gsap.set('#mapPinShadow', { opacity: 0, scale: 0.3 });
+    gsap.set('#venueDetailsText', { opacity: 0, y: 16 });
+
+    // 7. DRESS CODE initial states
+    gsap.set('#dressCandleGlow', { opacity: 0 });
+    gsap.set(['#dressCardHer', '#dressCardHim'], { opacity: 0, y: 26 });
+    gsap.set('#paletteStrip', { opacity: 0, y: 16 });
+    gsap.set('.swatch-item', { opacity: 0, scale: 0.25 });
+    gsap.set('#dressAvoidNote', { opacity: 0, y: 8 });
+
+    // 8. CLOSING initial states
+    gsap.set('#closingCandleGlow', { opacity: 0 });
+    gsap.set('.quote-word', { opacity: 0, y: 12 });
+    gsap.set(['#closingFamily', '#closingSeal'], { opacity: 0, y: 16 });
+  }
+
+  /* ========================================================================
+     1. HERO ENTRANCE TIMELINE (Plays Once When Envelope Opens)
+     Chandelier descends once with a small bounce, Bismillah reveals via
+     clip-path wipe, Y & Z oval monogram & Scroll hint fade in.
+     ======================================================================== */
+  function playHeroEntrance() {
+    if (typeof gsap === 'undefined' || prefersReducedMotion) return;
+
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
     tl.to(
-      '.arch-stroke-path',
+      '#heroChandelier',
       {
-        strokeDashoffset: 0,
-        duration: 1.4,
-        stagger: 0.14,
-        ease: 'power2.inOut'
+        opacity: 1,
+        y: 0,
+        duration: 1.0,
+        ease: 'back.out(1.45)'
       },
       0
     )
       .to(
-        ['#roseCornerTL', '#roseCornerTR', '#roseCornerBL', '#roseCornerBR'],
-        {
-          opacity: 1,
-          scale: 1,
-          rotation: 0,
-          duration: 0.95,
-          stagger: 0.1,
-          ease: 'back.out(1.5)',
-          onComplete: startRoseCornersIdleSway
-        },
-        0.15
-      )
-      .to(
-        ['.p-lantern-left', '.p-lantern-center-left', '.p-lantern-center-right', '.p-lantern-right'],
-        {
-          opacity: 1,
-          y: 0,
-          duration: 1.15,
-          stagger: 0.1,
-          ease: 'bounce.out'
-        },
-        0.22
-      )
-      .to(
-        '#bismillahArabic',
+        '#bismillahWipeMask',
         {
           clipPath: 'inset(0 0% 0 0%)',
           opacity: 1,
-          duration: 1.25,
+          duration: 1.1,
           ease: 'power2.inOut'
         },
-        0.38
+        0.18
       )
       .to(
         '#guestGreeting',
         {
           opacity: 1,
           y: 0,
-          duration: 0.55
+          duration: 0.48
         },
-        0.85
+        0.65
       )
       .to(
         '#heroMedallion',
@@ -499,722 +390,417 @@
           opacity: 1,
           scale: 1,
           y: 0,
-          duration: 0.75,
+          duration: 0.65,
           ease: 'back.out(1.4)'
         },
-        1.0
+        0.78
       )
       .to(
         '#heroScrollHint',
         {
           opacity: 1,
           y: 0,
-          duration: 0.6
+          duration: 0.48
         },
-        1.25
+        0.98
       );
   }
 
-  function startRoseCornersIdleSway() {
-    if (prefersReducedMotion) return;
+  /* ========================================================================
+     SINGLE INTERSECTIONOBSERVER FOR ALL SECTIONS
+     threshold: 0.25, rootMargin: "0px 0px -10% 0px"
+     Adds .in-view once per element, then unobserves it and plays its
+     one-time GSAP animation using transform & opacity only.
+     ======================================================================== */
+  function setupSingleRevealObserver() {
+    const sections = document.querySelectorAll('.section:not(.hero-section)');
+    if (!sections.length) return;
 
-    ambientTweens.roseCorners.forEach((t) => t.kill());
-    ambientTweens.roseCorners = [];
-
-    const corners = ['#roseCornerTL', '#roseCornerTR', '#roseCornerBL', '#roseCornerBR'];
-    corners.forEach((selector, idx) => {
-      const tween = gsap.to(selector, {
-        rotation: idx % 2 === 0 ? 3.2 : -3.2,
-        force3D: true,
-        duration: 3.2 + idx * 0.35,
-        repeat: -1,
-        yoyo: true,
-        ease: 'sine.inOut'
+    if (typeof IntersectionObserver === 'undefined') {
+      sections.forEach((sec) => {
+        sec.classList.add('in-view');
+        playSectionOnce(sec.id);
       });
-      ambientTweens.roseCorners.push(tween);
+      return;
+    }
+
+    const revealObserver = new IntersectionObserver(
+      (entries, observer) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const sec = entry.target;
+          sec.classList.add('in-view');
+          observer.unobserve(sec);
+          playSectionOnce(sec.id);
+        });
+      },
+      {
+        threshold: 0.25,
+        rootMargin: '0px 0px -10% 0px'
+      }
+    );
+
+    sections.forEach((sec) => {
+      revealObserver.observe(sec);
     });
   }
 
-  /* ========================================================================
-     ENVELOPE INTRO & ON-TAP OPENING SEQUENCE
-     ======================================================================== */
-  function setupEnvelopeInteraction() {
-    const envelopeStage = document.getElementById('envelopeStage');
-    const waxSealBtn = document.getElementById('waxSealBtn');
-    const tapToOpenText = document.getElementById('tapToOpenText');
-    const envelopeScene = document.getElementById('envelopeScene');
+  function playSectionOnce(sectionId) {
+    if (typeof gsap === 'undefined') return;
 
-    if (!envelopeStage || !waxSealBtn) return;
+    if (prefersReducedMotion) {
+      const targetMap = {
+        invitationSection: '#invitationSection .invitation-arch-card',
+        coupleSection: '#coupleSection .couple-arch-card',
+        dateTimeSection: '#dateTimeSection .datetime-pearl-card',
+        countdownSection: '#countdownSection .countdown-grid',
+        venueSection: '#venueSection .venue-card-stage',
+        dressCodeSection: '#dressCodeSection .dress-cards',
+        closingSection: '#closingSection .closing-arch-wrap'
+      };
+      const target = targetMap[sectionId];
+      if (target) {
+        gsap.to(target, { opacity: 1, duration: 0.35, ease: 'power1.out' });
+      }
+      return;
+    }
 
-    const triggerOpen = () => {
-      if (envelopeOpened) return;
-      envelopeOpened = true;
-
-      envelopeStage.style.pointerEvents = 'none';
-      waxSealBtn.disabled = true;
-      waxSealBtn.classList.add('is-cracking');
-      if (tapToOpenText) tapToOpenText.disabled = true;
-
-      // Stop the gold-dust canvas completely once the envelope opens
-      if (typeof stopGoldDustCanvasFn === 'function') {
-        stopGoldDustCanvasFn();
+    switch (sectionId) {
+      case 'invitationSection': {
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        tl.to('#invitationSection .anim-invite-line', {
+          opacity: 1,
+          y: 0,
+          duration: 0.58,
+          stagger: 0.16
+        })
+          .to(
+            '#invitationSection .leaf-flourish',
+            {
+              scaleX: 1,
+              opacity: 1,
+              duration: 0.62
+            },
+            '-=0.2'
+          )
+          .to(
+            '#nikkahHeading',
+            {
+              opacity: 1,
+              scale: 1,
+              duration: 0.7,
+              ease: 'back.out(1.45)'
+            },
+            '-=0.45'
+          )
+          .to(
+            '#invitationSection .one-time-foil-sweep',
+            {
+              xPercent: 420,
+              duration: 0.9,
+              ease: 'power2.inOut'
+            },
+            '-=0.4'
+          )
+          .to(
+            '#inviteDaughter',
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.52
+            },
+            '-=0.42'
+          );
+        break;
       }
 
-      authorizeAndPlayMusicOnTap();
-
-      if (prefersReducedMotion) {
-        unlockScroll();
-        gsap.to(envelopeStage, {
-          opacity: 0,
-          duration: 0.35,
-          onComplete: () => {
-            envelopeStage.classList.add('is-dismissed');
-            envelopeStage.style.display = 'none';
-            envelopeStage.setAttribute('aria-hidden', 'true');
-            envelopeStage.remove();
-          }
-        });
-        return;
+      case 'coupleSection': {
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        tl.to(
+          '#coupleCandleGlow',
+          {
+            opacity: 1,
+            duration: 0.9,
+            ease: 'power1.out'
+          },
+          0
+        )
+          .to(
+            '#brideName',
+            {
+              opacity: 1,
+              x: 0,
+              duration: 0.72
+            },
+            0.05
+          )
+          .to(
+            '#coupleDivider',
+            {
+              opacity: 1,
+              scale: 1,
+              duration: 0.52,
+              ease: 'back.out(2)'
+            },
+            '-=0.32'
+          )
+          .to(
+            '#groomName',
+            {
+              opacity: 1,
+              x: 0,
+              duration: 0.72
+            },
+            '-=0.28'
+          );
+        break;
       }
 
-      const envelopeEls = [
-        '#sealHalfLeft',
-        '#sealHalfRight',
-        '#envelopeFlap',
-        '#envelopeCard',
-        '#envelopePocket',
-        '.envelope-back',
-        '#stageLanternsParallax',
-        '.stage-corner',
-        envelopeStage
-      ];
-      setTempWillChange(envelopeEls, 'transform, opacity');
+      case 'dateTimeSection': {
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        tl.to(
+          '#dateTimeSection .dt-flourish-reveal',
+          {
+            opacity: 1,
+            scaleX: 1,
+            duration: 0.55,
+            ease: 'power2.out'
+          },
+          0
+        ).to(
+          '#dateTimeSection .dt-stagger-item',
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.48,
+            stagger: 0.065
+          },
+          0.06
+        );
+        break;
+      }
 
-      const tl = gsap.timeline({
-        defaults: { ease: 'power2.inOut' }
-      });
+      case 'countdownSection': {
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        tl.to('.countdown-oval-tile', {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: 0.58,
+          stagger: 0.1,
+          ease: 'back.out(1.3)'
+        }).to(
+          '#saveTheDateBtn',
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.48
+          },
+          '-=0.2'
+        );
+        break;
+      }
 
-      tl.to(
-        [tapToOpenText, '#envelopePretitle'],
-        {
-          opacity: 0,
-          y: 8,
-          duration: 0.28,
-          ease: 'power2.in'
-        },
-        0
-      )
-        .to('.seal-crack-edge', { opacity: 1, duration: 0.14 }, 0.04)
-        .to(
-          '#sealHalfLeft',
-          { x: -10, y: -3, rotation: -8, duration: 0.18, ease: 'power2.out' },
-          0.1
-        )
-        .to(
-          '#sealHalfRight',
-          { x: 10, y: -3, rotation: 8, duration: 0.18, ease: 'power2.out' },
-          0.1
-        )
-        .to(
-          '#sealHalfLeft',
-          { x: -44, y: 95, rotation: -32, opacity: 0, duration: 0.48, ease: 'power2.in' },
-          0.28
-        )
-        .to(
-          '#sealHalfRight',
-          { x: 44, y: 98, rotation: 34, opacity: 0, duration: 0.48, ease: 'power2.in' },
-          0.28
-        )
-        .to(
-          '#envelopeFlap',
+      case 'venueSection': {
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        tl.to(
+          '#veilLeft',
           {
-            rotateX: 180,
-            duration: 0.78,
-            ease: 'power2.inOut',
-            onUpdate: function () {
-              if (this.progress() > 0.48) {
-                const flap = document.getElementById('envelopeFlap');
-                if (flap) flap.style.zIndex = '1';
-              }
-            }
-          },
-          0.52
-        )
-        .to(
-          '#envelopeCard',
-          {
-            y: -118,
-            scale: 1.06,
-            duration: 0.72,
-            ease: 'power3.out'
-          },
-          0.95
-        )
-        .to(
-          ['#envelopePocket', '.envelope-back', '#envelopeFlap', '#stageLanternsParallax', '.stage-corner'],
-          {
-            y: 160,
+            xPercent: -102,
             opacity: 0,
-            duration: 0.68,
-            ease: 'power2.in'
-          },
-          1.45
-        )
-        .to(
-          '#envelopeCard',
-          {
-            y: -10,
-            scale: 2.85,
-            opacity: 0,
-            duration: 0.75,
+            duration: 0.88,
             ease: 'power2.inOut'
           },
-          1.55
+          0
         )
-        .add(() => {
-          unlockScroll();
-          triggerOpeningBurst();
-          playHeroArchEntrance();
-        }, 1.55)
-        .to(
-          envelopeStage,
+          .to(
+            '#veilRight',
+            {
+              xPercent: 102,
+              opacity: 0,
+              duration: 0.88,
+              ease: 'power2.inOut'
+            },
+            0
+          )
+          .to(
+            '#mapPin',
+            {
+              opacity: 1,
+              y: 0,
+              scale: 1,
+              duration: 0.76,
+              ease: 'bounce.out'
+            },
+            0.42
+          )
+          .to(
+            '#mapPinShadow',
+            {
+              opacity: 1,
+              scale: 1,
+              duration: 0.38
+            },
+            0.52
+          )
+          .fromTo(
+            '#mapPinRipple',
+            { opacity: 0.85, scale: 0.3 },
+            { opacity: 0, scale: 2.2, duration: 0.82, ease: 'power2.out' },
+            0.62
+          )
+          .to(
+            '#venueDetailsText',
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.56
+            },
+            0.52
+          )
+          .to(
+            '#mapsCtaBtn .btn-shimmer-once',
+            {
+              xPercent: 460,
+              duration: 0.88,
+              ease: 'power2.inOut'
+            },
+            0.9
+          );
+        break;
+      }
+
+      case 'dressCodeSection': {
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        tl.to(
+          '#dressCandleGlow',
           {
-            opacity: 0,
-            duration: 0.55,
-            ease: 'power2.out',
-            onComplete: () => {
-              clearTempWillChange(envelopeEls);
-              envelopeStage.classList.add('is-dismissed');
-              envelopeStage.style.display = 'none';
-              envelopeStage.setAttribute('aria-hidden', 'true');
-              envelopeStage.remove();
-            }
+            opacity: 1,
+            duration: 0.75,
+            ease: 'power1.out'
           },
-          1.62
-        );
-    };
-
-    waxSealBtn.addEventListener('click', triggerOpen);
-    if (tapToOpenText) tapToOpenText.addEventListener('click', triggerOpen);
-    if (envelopeScene) envelopeScene.addEventListener('click', triggerOpen);
-  }
-
-  function triggerOpeningBurst() {
-    if (prefersReducedMotion) return;
-
-    const burstLayer = document.getElementById('openingBurstLayer');
-    if (!burstLayer) return;
-    burstLayer.innerHTML = '';
-
-    const count = 22;
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const colors = ['#C9A24B', '#F2DF9F', '#D49B9E', '#9B2D4A', '#F2D4D7'];
-
-    for (let i = 0; i < count; i++) {
-      const isPetal = i % 2 === 0;
-      const el = document.createElementNS(svgNS, 'svg');
-      el.classList.add('burst-particle');
-      el.setAttribute('viewBox', isPetal ? '0 0 18 24' : '0 0 16 16');
-      el.style.width = isPetal ? '15px' : '11px';
-      el.style.height = isPetal ? '19px' : '11px';
-
-      const path = document.createElementNS(svgNS, 'path');
-      if (isPetal) {
-        path.setAttribute('d', 'M9 1 C15 5, 17 12, 13 19 C10 23, 6 23, 4 18 C1 12, 3 5, 9 1 Z');
-      } else {
-        path.setAttribute('d', 'M8 0 L10 6 L16 8 L10 10 L8 16 L6 10 L0 8 L6 6 Z');
+          0
+        )
+          .to(
+            ['#dressCardHer', '#dressCardHim'],
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.48,
+              stagger: 0.1
+            },
+            0
+          )
+          .to(
+            '.attire-stroke',
+            {
+              strokeDashoffset: 0,
+              duration: 0.7,
+              stagger: 0.03,
+              ease: 'power2.inOut'
+            },
+            0.05
+          )
+          .to(
+            '#paletteStrip',
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.4
+            },
+            0.18
+          )
+          .to(
+            '.swatch-item',
+            {
+              opacity: 1,
+              scale: 1,
+              duration: 0.32,
+              stagger: 0.04,
+              ease: 'back.out(1.7)'
+            },
+            0.22
+          )
+          .to(
+            '#dressAvoidNote',
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.35
+            },
+            0.45
+          );
+        break;
       }
-      path.setAttribute('fill', colors[i % colors.length]);
-      el.appendChild(path);
-      burstLayer.appendChild(el);
 
-      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.25;
-      const distance = 90 + Math.random() * 145;
-      const tx = Math.cos(angle) * distance;
-      const ty = Math.sin(angle) * distance - 25;
+      case 'closingSection': {
+        const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
+        tl.to(
+          '#closingCandleGlow',
+          {
+            opacity: 1,
+            duration: 0.9,
+            ease: 'power1.out'
+          },
+          0
+        )
+          .to(
+            '.quote-word',
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.36,
+              stagger: 0.055
+            },
+            0.05
+          )
+          .to(
+            '#closingFamily',
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.48
+            },
+            '-=0.1'
+          )
+          .to(
+            '#closingSeal',
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.48,
+              ease: 'back.out(1.5)'
+            },
+            '-=0.2'
+          );
+        break;
+      }
 
-      gsap.fromTo(
-        el,
-        { x: 0, y: 0, scale: 0.2, rotation: 0, opacity: 1 },
-        {
-          x: tx,
-          y: ty + 65,
-          scale: 0.9 + Math.random() * 0.5,
-          rotation: (Math.random() - 0.5) * 260,
-          opacity: 0,
-          duration: 1.15 + Math.random() * 0.55,
-          ease: 'power3.out',
-          onComplete: () => el.remove()
-        }
-      );
+      default:
+        break;
     }
   }
 
   /* ========================================================================
-     SCROLL-TRIGGERED ANIMATIONS FOR THE 7 SECTIONS BELOW THE HERO
+     HERO SCROLL HINT CLICK HANDLER
      ======================================================================== */
-  function setupScrollAnimations() {
-    // Prepare SVG strokes for Date/Time Connector and Dress Code Illustrations
-    const strokeEls = document.querySelectorAll('#dtConnectorPath, .attire-stroke');
-    strokeEls.forEach((el) => {
-      try {
-        const len = el.getTotalLength();
-        el.style.strokeDasharray = `${len}`;
-        el.style.strokeDashoffset = prefersReducedMotion ? '0' : `${len}`;
-      } catch (_) {}
-    });
+  function setupScrollHintLink() {
+    const scrollHint = document.getElementById('heroScrollHint');
+    if (!scrollHint) return;
 
-    if (prefersReducedMotion) return;
-
-    // ----------------------------------------------------------------------
-    // 1. INVITATION SECTION:
-    //    Line-by-line masked slide-up -> "NIKKAH" scales in with foil shimmer
-    //    & center ornaments expanding outward -> "of beloved daughter" fades up
-    // ----------------------------------------------------------------------
-    gsap.set('#invitationSection .line-inner', { yPercent: 115, opacity: 0 });
-    gsap.set('#nikkahHeading', { scale: 0.78, opacity: 0 });
-    gsap.set('.ornament-wing', { scaleX: 0, opacity: 0 });
-    gsap.set('.ornament-diamond', { scale: 0, opacity: 0 });
-    gsap.set('#inviteDaughter', { y: 18, opacity: 0 });
-
-    const inviteEls = [
-      '#invitationSection .line-inner',
-      '#nikkahHeading',
-      '.ornament-wing',
-      '.ornament-diamond',
-      '#inviteDaughter'
-    ];
-    const inviteTl = gsap.timeline({
-      onStart: () => setTempWillChange(inviteEls, 'transform, opacity'),
-      onComplete: () => clearTempWillChange(inviteEls),
-      scrollTrigger: {
-        trigger: '#invitationSection',
-        start: 'top 90%',
-        toggleActions: 'play none none none',
-        once: true
+    scrollHint.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = document.getElementById('invitationSection');
+      if (target) {
+        target.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
       }
-    });
-
-    inviteTl
-      .to('#invitationSection .line-inner', {
-        yPercent: 0,
-        opacity: 1,
-        duration: 0.72,
-        stagger: 0.2,
-        ease: 'power3.out'
-      })
-      .to(
-        '.ornament-diamond',
-        {
-          scale: 1,
-          opacity: 1,
-          duration: 0.4,
-          ease: 'back.out(2)'
-        },
-        '-=0.2'
-      )
-      .to(
-        '.ornament-wing',
-        {
-          scaleX: 1,
-          opacity: 1,
-          duration: 0.7,
-          ease: 'power3.out'
-        },
-        '-=0.25'
-      )
-      .to(
-        '#nikkahHeading',
-        {
-          scale: 1,
-          opacity: 1,
-          duration: 0.8,
-          ease: 'back.out(1.6)'
-        },
-        '-=0.55'
-      )
-      .to(
-        '#inviteDaughter',
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.65,
-          ease: 'power2.out'
-        },
-        '-=0.25'
-      );
-
-    // ----------------------------------------------------------------------
-    // 2. COUPLE NAMES SECTION (Pinned Scene, ~150% scroll length):
-    //    "Yashfa Ali" slides in from left with ink write-on clip-path;
-    //    heart divider & "with" pop in; "Zain Saleem" slides from right.
-    //    Drifting parallax rose petals behind them.
-    // ----------------------------------------------------------------------
-    gsap.set('#brideName', { x: -55, opacity: 0 });
-    gsap.set('#brideInkSpan', { clipPath: 'inset(0 100% 0 0%)' });
-    gsap.set('#coupleDivider', { scale: 0.2, opacity: 0 });
-    gsap.set('#groomName', { x: 55, opacity: 0 });
-    gsap.set('#groomInkSpan', { clipPath: 'inset(0 100% 0 0%)' });
-
-    // Play the couple reveal when the section enters AND pin the section for ~150% scroll length
-    const coupleEls = ['#brideName', '#brideInkSpan', '#coupleDivider', '#groomName', '#groomInkSpan'];
-    const coupleRevealTl = gsap.timeline({
-      onStart: () => setTempWillChange(coupleEls, 'transform, opacity, clip-path'),
-      onComplete: () => clearTempWillChange(coupleEls),
-      scrollTrigger: {
-        trigger: '#coupleSection',
-        start: 'top 72%',
-        toggleActions: 'play none none none',
-        once: true
-      }
-    });
-
-    coupleRevealTl
-      .to(
-        '#brideName',
-        {
-          x: 0,
-          opacity: 1,
-          duration: 0.85,
-          ease: 'power3.out'
-        },
-        0
-      )
-      .to(
-        '#brideInkSpan',
-        {
-          clipPath: 'inset(0 0% 0 0%)',
-          duration: 0.95,
-          ease: 'power2.inOut'
-        },
-        0.05
-      )
-      .to(
-        '#coupleDivider',
-        {
-          scale: 1,
-          opacity: 1,
-          duration: 0.6,
-          ease: 'back.out(2.2)'
-        },
-        0.55
-      )
-      .to(
-        '#groomName',
-        {
-          x: 0,
-          opacity: 1,
-          duration: 0.85,
-          ease: 'power3.out'
-        },
-        0.72
-      )
-      .to(
-        '#groomInkSpan',
-        {
-          clipPath: 'inset(0 0% 0 0%)',
-          duration: 0.95,
-          ease: 'power2.inOut'
-        },
-        0.77
-      );
-
-    // Pinned scene on desktop only (capped to +=100% scroll length, scrub: true);
-    // on touch devices, skip pinning and parallax scrub so native touch scrolling is instant.
-    if (!isTouchDevice) {
-      ScrollTrigger.create({
-        trigger: '#coupleSection',
-        start: 'top top',
-        end: '+=100%',
-        pin: true,
-        pinSpacing: true,
-        scrub: true,
-        onUpdate: (self) => {
-          const p = self.progress;
-          gsap.set('.couple-parallax-petal', {
-            y: (i) => (i % 2 === 0 ? -90 * p : 80 * p),
-            rotation: (i) => (i % 2 === 0 ? 75 * p : -75 * p),
-            force3D: true
-          });
-        }
-      });
-    }
-
-    // ----------------------------------------------------------------------
-    // 3. DATE & TIME SECTION:
-    //    Two ornate cards flip in 3D, slot reels roll in, gold line draws
-    // ----------------------------------------------------------------------
-    gsap.set(['#dateCard', '#timeCard'], {
-      opacity: 0,
-      y: 30,
-      rotateY: -75
-    });
-
-    const dtEls = ['#dateCard', '#timeCard', '#slotDayReel', '#slotYearReel', '#slotHourReel'];
-    const dtTl = gsap.timeline({
-      onStart: () => setTempWillChange(dtEls, 'transform, opacity'),
-      onComplete: () => clearTempWillChange(dtEls),
-      scrollTrigger: {
-        trigger: '#dateTimeSection',
-        start: 'top 76%',
-        toggleActions: 'play none none none',
-        once: true
-      }
-    });
-
-    dtTl
-      .to(['#dateCard', '#timeCard'], {
-        opacity: 1,
-        y: 0,
-        rotateY: 0,
-        duration: 0.9,
-        stagger: 0.2,
-        ease: 'back.out(1.3)'
-      })
-      .to(
-        '#dtConnectorPath',
-        {
-          strokeDashoffset: 0,
-          duration: 0.8,
-          ease: 'power2.inOut'
-        },
-        0.2
-      )
-      .to(
-        ['#slotDayReel', '#slotYearReel', '#slotHourReel'],
-        {
-          yPercent: -80, // 5 items in each reel -> index 4 is -80%
-          duration: 1.15,
-          stagger: 0.12,
-          ease: 'power3.inOut'
-        },
-        0.15
-      );
-
-    // ----------------------------------------------------------------------
-    // 4. COUNTDOWN SECTION:
-    //    Four gold-bordered tiles stagger in + "Save the date" button fades up
-    // ----------------------------------------------------------------------
-    gsap.set('.countdown-tile', { opacity: 0, y: 28, scale: 0.92 });
-    gsap.set('#saveTheDateBtn', { opacity: 0, y: 18 });
-
-    const cdEls = ['.countdown-tile', '#saveTheDateBtn'];
-    const cdTl = gsap.timeline({
-      onStart: () => setTempWillChange(cdEls, 'transform, opacity'),
-      onComplete: () => clearTempWillChange(cdEls),
-      scrollTrigger: {
-        trigger: '#countdownSection',
-        start: 'top 76%',
-        toggleActions: 'play none none none',
-        once: true
-      }
-    });
-
-    cdTl
-      .to('.countdown-tile', {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        duration: 0.68,
-        stagger: 0.11,
-        ease: 'back.out(1.4)'
-      })
-      .to(
-        '#saveTheDateBtn',
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.55,
-          ease: 'power2.out'
-        },
-        '-=0.25'
-      );
-
-    // ----------------------------------------------------------------------
-    // 5. VENUE REVEAL SECTION:
-    //    Curtain halves part from center, gold pin drops with bounce & ripples,
-    //    venue name & address fade in
-    // ----------------------------------------------------------------------
-    gsap.set('#mapPin', { opacity: 0, y: -68, scale: 0.8 });
-    gsap.set('#mapPinShadow', { opacity: 0, scale: 0.3 });
-    gsap.set('#venueDetailsText', { opacity: 0, y: 18 });
-
-    let venueRevealed = false;
-    const playVenueReveal = () => {
-      if (venueRevealed) return;
-      venueRevealed = true;
-      const veil = document.getElementById('venueVeil');
-      if (veil) veil.classList.add('is-parted');
-
-      const venueEls = ['#veilCrest', '#veilLeft', '#veilRight', '#mapPin', '#mapPinShadow', '#venueDetailsText'];
-      setTempWillChange(venueEls, 'transform, opacity');
-
-      const venueTl = gsap.timeline({
-        onComplete: () => clearTempWillChange(venueEls)
-      });
-      venueTl
-        .to('#veilCrest', { scale: 0.8, opacity: 0, duration: 0.32, ease: 'power2.in' }, 0)
-        .to('#veilLeft', { xPercent: -104, opacity: 0.15, duration: 1.0, ease: 'power3.inOut' }, 0.16)
-        .to('#veilRight', { xPercent: 104, opacity: 0.15, duration: 1.0, ease: 'power3.inOut' }, 0.16)
-        .to('#mapPin', { opacity: 1, y: 0, scale: 1, duration: 0.85, ease: 'bounce.out' }, 0.6)
-        .to('#mapPinShadow', { opacity: 1, scale: 1, duration: 0.45, ease: 'power2.out' }, 0.7)
-        .to('#venueDetailsText', { opacity: 1, y: 0, duration: 0.65, ease: 'power2.out' }, 0.68);
-    };
-
-    ScrollTrigger.create({
-      trigger: '#venueSection',
-      start: 'top 74%',
-      once: true,
-      onEnter: playVenueReveal
-    });
-
-    const venueVeil = document.getElementById('venueVeil');
-    if (venueVeil) {
-      venueVeil.addEventListener('click', playVenueReveal);
-      venueVeil.addEventListener('touchstart', playVenueReveal, { passive: true });
-    }
-
-    // ----------------------------------------------------------------------
-    // 6. DRESS CODE SECTION:
-    //    Two tall arch-shaped cards stagger up, SVG line illustrations draw
-    //    themselves via stroke animation, 6 palette circles pop in one by one
-    // ----------------------------------------------------------------------
-    gsap.set(['#dressCardHer', '#dressCardHim'], { opacity: 0, y: 36 });
-    gsap.set('#paletteStrip', { opacity: 0, y: 24 });
-    gsap.set('.swatch-item', { opacity: 0, scale: 0.2 });
-    gsap.set('#dressAvoidNote', { opacity: 0, y: 10 });
-
-    const dressEls = ['#dressCardHer', '#dressCardHim', '#paletteStrip', '.swatch-item', '#dressAvoidNote'];
-    const dressTl = gsap.timeline({
-      onStart: () => setTempWillChange(dressEls, 'transform, opacity'),
-      onComplete: () => clearTempWillChange(dressEls),
-      scrollTrigger: {
-        trigger: '#dressCodeSection',
-        start: 'top 76%',
-        toggleActions: 'play none none none',
-        once: true
-      }
-    });
-
-    dressTl
-      .to(['#dressCardHer', '#dressCardHim'], {
-        opacity: 1,
-        y: 0,
-        duration: 0.78,
-        stagger: 0.18,
-        ease: 'power3.out'
-      })
-      .to(
-        '.attire-stroke',
-        {
-          strokeDashoffset: 0,
-          duration: 1.25,
-          stagger: 0.08,
-          ease: 'power2.inOut'
-        },
-        0.15
-      )
-      .to(
-        '#paletteStrip',
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.55,
-          ease: 'power2.out'
-        },
-        0.55
-      )
-      .to(
-        '.swatch-item',
-        {
-          opacity: 1,
-          scale: 1,
-          duration: 0.48,
-          stagger: 0.09,
-          ease: 'back.out(2.1)'
-        },
-        0.7
-      )
-      .to(
-        '#dressAvoidNote',
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-          ease: 'power2.out'
-        },
-        1.15
-      );
-
-    // ----------------------------------------------------------------------
-    // 7. CLOSING SECTION:
-    //    Word-by-word quote with gold glow, family line, monogram seal
-    // ----------------------------------------------------------------------
-    gsap.set('.quote-word', { opacity: 0, y: 14 });
-    gsap.set(['#closingFamily', '#closingSeal'], { opacity: 0, y: 18 });
-
-    const closingEls = ['.quote-word', '#closingFamily', '#closingSeal'];
-    const closingTl = gsap.timeline({
-      onStart: () => setTempWillChange(closingEls, 'transform, opacity'),
-      onComplete: () => clearTempWillChange(closingEls),
-      scrollTrigger: {
-        trigger: '#closingSection',
-        start: 'top 85%',
-        toggleActions: 'play none none none',
-        once: true
-      }
-    });
-
-    closingTl
-      .to('.quote-word', {
-        opacity: 1,
-        y: 0,
-        duration: 0.42,
-        stagger: 0.06,
-        ease: 'power2.out'
-      })
-      .to(
-        '#closingFamily',
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.55,
-          ease: 'power2.out'
-        },
-        '-=0.15'
-      )
-      .to(
-        '#closingSeal',
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.55,
-          ease: 'back.out(1.6)'
-        },
-        '-=0.25'
-      );
-  }
-
-  /* ========================================================================
-     SLOT COUNTER REELS FOR DATE & TIME
-     ======================================================================== */
-  function setupSlotCounterDOM() {
-    const reels = document.querySelectorAll('.slot-reel');
-    reels.forEach((reel) => {
-      const raw = reel.getAttribute('data-values');
-      if (!raw) return;
-      const items = raw.split(',');
-      if (prefersReducedMotion) {
-        reel.innerHTML = `<span>${items[items.length - 1]}</span>`;
-        return;
-      }
-      reel.innerHTML = items.map((val) => `<span>${val}</span>`).join('');
     });
   }
 
   /* ========================================================================
-     4. LIVE COUNTDOWN TO 2026-11-21T14:00:00+05:00
-        Updates every second, pauses when tab is hidden, resyncs when visible.
+     5. LIVE COUNTDOWN TO 2026-11-21T14:00:00+05:00
+        Tabular-nums + quick fade/slide on digit change.
+        Pauses when tab is hidden, resyncs when visible.
      ======================================================================== */
   function setupLiveCountdown() {
     const targetTime = new Date(TARGET_ISO_DATE).getTime();
@@ -1242,23 +828,29 @@
       const isInitial = prevValues[key] === null;
       prevValues[key] = formatted;
 
-      if (isInitial || prefersReducedMotion || typeof gsap === 'undefined' || document.hidden) {
+      if (
+        isInitial ||
+        prefersReducedMotion ||
+        typeof gsap === 'undefined' ||
+        document.hidden ||
+        document.documentElement.classList.contains('scrolling')
+      ) {
         el.textContent = formatted;
         return;
       }
 
+      // Quick fade/slide using only transform & opacity
       gsap.to(el, {
-        y: -10,
-        rotateX: 65,
+        y: -6,
         opacity: 0,
-        duration: 0.16,
+        duration: 0.12,
         ease: 'power1.in',
         onComplete: () => {
           el.textContent = formatted;
           gsap.fromTo(
             el,
-            { y: 10, rotateX: -65, opacity: 0 },
-            { y: 0, rotateX: 0, opacity: 1, duration: 0.24, ease: 'back.out(1.6)' }
+            { y: 6, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.18, ease: 'power2.out' }
           );
         }
       });
@@ -1295,9 +887,7 @@
 
     function startInterval() {
       if (intervalId) return;
-      intervalId = setInterval(() => {
-        tick();
-      }, 1000);
+      intervalId = setInterval(tick, 1000);
     }
 
     function stopInterval() {
@@ -1307,12 +897,11 @@
       }
     }
 
-    // Pause when tab is hidden, resync immediately when visible
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         stopInterval();
-      } else {
-        if (tick()) startInterval();
+      } else if (tick()) {
+        startInterval();
       }
     });
 
@@ -1323,9 +912,6 @@
 
   /* ========================================================================
      "SAVE THE DATE" .ICS CALENDAR FILE DOWNLOAD
-     Title: "Nikkah of Yashfa & Zain"
-     Date: 21 Nov 2026 2:00 PM PKT (09:00 UTC)
-     Location: "Bahira Town Gul Bahar Block, Lahore"
      ======================================================================== */
   function setupSaveTheDateICS() {
     const btn = document.getElementById('saveTheDateBtn');
@@ -1340,7 +926,7 @@
         'METHOD:PUBLISH',
         'BEGIN:VEVENT',
         'UID:nikkah-yashfa-zain-20261121@nikkahinvitation.local',
-        'DTSTAMP:20261030T000000Z',
+        'DTSTAMP:20261031T000000Z',
         'DTSTART:20261121T090000Z',
         'DTEND:20261121T130000Z',
         'SUMMARY:Nikkah of Yashfa & Zain',
@@ -1385,350 +971,6 @@
         navigator.clipboard.writeText(address).then(showCopied).catch(showCopied);
       } else {
         showCopied();
-      }
-    });
-  }
-
-  /* ========================================================================
-     HTML5 CANVAS GOLD DUST PARTICLES
-     Max 15 particles on mobile; stops completely after the envelope opens.
-     ======================================================================== */
-  function setupGoldDustCanvas() {
-    const canvas = document.getElementById('goldDustCanvas');
-    if (!canvas || prefersReducedMotion) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let width = 0;
-    let height = 0;
-    let rafId = null;
-    let stopped = false;
-    window.__goldDustStopped = false;
-    const MAX_PARTICLES = 15;
-    const particles = [];
-
-    function resize() {
-      if (stopped) return;
-      const shell = document.getElementById('invitationShell');
-      width = shell ? shell.clientWidth : Math.min(window.innerWidth, 430);
-      height = window.innerHeight;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    resize();
-    window.addEventListener('resize', resize, { passive: true });
-
-    for (let i = 0; i < MAX_PARTICLES; i++) {
-      particles.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        r: 1.1 + Math.random() * 2.1,
-        vx: (Math.random() - 0.5) * 0.28,
-        vy: -0.18 - Math.random() * 0.35,
-        alpha: 0.2 + Math.random() * 0.55,
-        phase: Math.random() * Math.PI * 2
-      });
-    }
-
-    function render() {
-      if (stopped || document.hidden) {
-        rafId = null;
-        return;
-      }
-
-      ctx.clearRect(0, 0, width, height);
-
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        p.x += p.vx + Math.sin(p.phase) * 0.12;
-        p.y += p.vy;
-        p.phase += 0.02;
-
-        if (p.y < -10) {
-          p.y = height + 10;
-          p.x = Math.random() * width;
-        }
-        if (p.x < -10) p.x = width + 10;
-        if (p.x > width + 10) p.x = -10;
-
-        const twinkle = 0.55 + 0.45 * Math.sin(p.phase * 1.5);
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(218, 180, 92, ${(p.alpha * twinkle).toFixed(3)})`;
-        ctx.fill();
-      }
-
-      rafId = requestAnimationFrame(render);
-    }
-
-    function onVisibilityChange() {
-      if (stopped) return;
-      if (document.hidden) {
-        if (rafId) {
-          cancelAnimationFrame(rafId);
-          rafId = null;
-        }
-      } else if (!rafId) {
-        rafId = requestAnimationFrame(render);
-      }
-    }
-
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    stopGoldDustCanvasFn = () => {
-      if (stopped) return;
-      stopped = true;
-      window.__goldDustStopped = true;
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-      window.removeEventListener('resize', resize);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      ctx.clearRect(0, 0, width, height);
-      canvas.style.display = 'none';
-    };
-
-    if (envelopeOpened) {
-      stopGoldDustCanvasFn();
-      return;
-    }
-
-    rafId = requestAnimationFrame(render);
-  }
-
-  /* ========================================================================
-     LANTERN SWAY & DEVICE-TILT / MOUSE PARALLAX
-     ======================================================================== */
-  function setupLanternSway() {
-    if (prefersReducedMotion) return;
-
-    ambientTweens.lanterns.forEach((t) => t.kill());
-    ambientTweens.lanterns = [];
-
-    const lanterns = document.querySelectorAll('.lantern');
-    lanterns.forEach((lantern, idx) => {
-      const angle = idx % 2 === 0 ? 3.4 : -3.4;
-      const duration = 2.7 + (idx % 3) * 0.45;
-
-      const tween = gsap.fromTo(
-        lantern,
-        { rotation: -angle },
-        {
-          rotation: angle,
-          force3D: true,
-          duration: duration,
-          repeat: -1,
-          yoyo: true,
-          ease: 'sine.inOut'
-        }
-      );
-      ambientTweens.lanterns.push(tween);
-    });
-  }
-
-  function setupLanternParallax() {
-    if (prefersReducedMotion || isTouchDevice) return;
-
-    const parallaxNodes = document.querySelectorAll('.parallax-lantern-wrap');
-    if (!parallaxNodes.length) return;
-
-    const setters = Array.from(parallaxNodes).map((node) => {
-      const depth = parseFloat(node.getAttribute('data-depth') || '1');
-      return {
-        depth,
-        xTo: gsap.quickTo(node, 'x', { duration: 0.6, ease: 'power2.out' }),
-        yTo: gsap.quickTo(node, 'y', { duration: 0.6, ease: 'power2.out' })
-      };
-    });
-
-    window.addEventListener(
-      'pointermove',
-      (e) => {
-        const nx = (e.clientX / window.innerWidth - 0.5) * 2;
-        const ny = (e.clientY / window.innerHeight - 0.5) * 2;
-        setters.forEach((s) => {
-          s.xTo(nx * 10 * s.depth);
-          s.yTo(ny * 6 * s.depth);
-        });
-      },
-      { passive: true }
-    );
-  }
-
-  /* ========================================================================
-     COUPLE PARALLAX ROSE PETALS & CLOSING FALLING ROSE PETALS (Capped at 12)
-     ======================================================================== */
-  function setupCoupleParallaxPetals() {
-    const backdrop = document.getElementById('couplePetalsBackdrop');
-    if (!backdrop || prefersReducedMotion) return;
-    backdrop.innerHTML = '';
-
-    const count = 8;
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const colors = ['#D49B9E', '#E6B8BB', '#C47D85', '#F2D4D7'];
-
-    for (let i = 0; i < count; i++) {
-      const svg = document.createElementNS(svgNS, 'svg');
-      svg.setAttribute('viewBox', '0 0 20 26');
-      svg.classList.add('couple-parallax-petal');
-      svg.style.left = `${(i * 11.5 + 6) % 90}%`;
-      svg.style.top = `${(i * 13 + 10) % 85}%`;
-
-      const path = document.createElementNS(svgNS, 'path');
-      path.setAttribute('d', 'M10 1 C16 5, 19 13, 15 21 C12 25, 7 25, 4 20 C1 13, 4 5, 10 1 Z');
-      path.setAttribute('fill', colors[i % colors.length]);
-      svg.appendChild(path);
-      backdrop.appendChild(svg);
-    }
-  }
-
-  function setupFallingRosePetals() {
-    if (prefersReducedMotion) return;
-
-    ambientTweens.fallingPetals.forEach((t) => t.kill());
-    ambientTweens.fallingPetals = [];
-
-    const layer = document.getElementById('fallingPetalsLayer');
-    if (!layer) return;
-    layer.innerHTML = '';
-
-    const petalCount = 12; // Capped at 12 petals max
-    const petalColors = ['#D49B9E', '#E6B8BB', '#C47D85', '#F2D4D7'];
-    const svgNS = 'http://www.w3.org/2000/svg';
-
-    for (let i = 0; i < petalCount; i++) {
-      const petalSvg = document.createElementNS(svgNS, 'svg');
-      petalSvg.setAttribute('viewBox', '0 0 20 26');
-      petalSvg.classList.add('rose-petal');
-      petalSvg.style.left = `${(i * 7.8 + 4) % 94}%`;
-
-      const path = document.createElementNS(svgNS, 'path');
-      path.setAttribute(
-        'd',
-        'M10 1 C16 5, 19 13, 15 21 C12 25, 7 25, 4 20 C1 13, 4 5, 10 1 Z'
-      );
-      path.setAttribute('fill', petalColors[i % petalColors.length]);
-      path.setAttribute('opacity', '0.78');
-      petalSvg.appendChild(path);
-      layer.appendChild(petalSvg);
-
-      const tween = gsap.fromTo(
-        petalSvg,
-        {
-          y: -30,
-          x: 0,
-          rotation: -20 + (i % 5) * 10,
-          opacity: 0
-        },
-        {
-          y: 680,
-          x: (i % 2 === 0 ? 1 : -1) * (28 + (i % 4) * 10),
-          rotation: 120 + (i % 4) * 35,
-          opacity: 0.82,
-          force3D: true,
-          duration: 6.2 + (i % 5) * 1.1,
-          repeat: -1,
-          delay: i * 0.35,
-          ease: 'sine.inOut',
-          paused: true
-        }
-      );
-      ambientTweens.fallingPetals.push(tween);
-    }
-  }
-
-  /* ========================================================================
-     INTERSECTION OBSERVER & SCROLL-IDLE PAUSING FOR AMBIENT ANIMATIONS
-     Pauses off-screen CSS/GSAP ambient animations and pauses ambient tweens
-     while actively scrolling so 100% of frame budget goes to smooth scroll.
-     ======================================================================== */
-  function setupAmbientAnimationObserver() {
-    if (prefersReducedMotion || typeof IntersectionObserver === 'undefined') return;
-
-    let closingVisible = false;
-    let isActivelyScrolling = false;
-    let scrollIdleTimer = null;
-
-    function syncAmbientPlayState() {
-      const pauseAmbient = isActivelyScrolling || document.hidden;
-
-      ambientTweens.roseCorners.forEach((t) => {
-        if (pauseAmbient) t.pause();
-        else t.resume();
-      });
-
-      ambientTweens.lanterns.forEach((t) => {
-        if (pauseAmbient) t.pause();
-        else t.resume();
-      });
-
-      ambientTweens.fallingPetals.forEach((t) => {
-        if (pauseAmbient || !closingVisible) t.pause();
-        else t.resume();
-      });
-    }
-
-    const sectionObserver = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const el = entry.target;
-          if (entry.isIntersecting) {
-            el.classList.remove('is-offscreen');
-          } else {
-            el.classList.add('is-offscreen');
-          }
-
-          if (el.id === 'closingSection') {
-            closingVisible = entry.isIntersecting;
-            syncAmbientPlayState();
-          }
-        });
-      },
-      { rootMargin: '100px 0px' }
-    );
-
-    document.querySelectorAll('.section').forEach((sec) => {
-      sectionObserver.observe(sec);
-    });
-
-    window.addEventListener(
-      'scroll',
-      () => {
-        if (!isActivelyScrolling) {
-          isActivelyScrolling = true;
-          syncAmbientPlayState();
-        }
-        if (scrollIdleTimer) clearTimeout(scrollIdleTimer);
-        scrollIdleTimer = setTimeout(() => {
-          isActivelyScrolling = false;
-          syncAmbientPlayState();
-        }, 140);
-      },
-      { passive: true }
-    );
-  }
-
-  /* ========================================================================
-     TOP SCROLL PROGRESS BAR
-     ======================================================================== */
-  function setupScrollProgressBar() {
-    const bar = document.getElementById('scrollProgressBar');
-    if (!bar) return;
-
-    gsap.to(bar, {
-      scaleX: 1,
-      force3D: true,
-      ease: 'none',
-      scrollTrigger: {
-        trigger: document.documentElement,
-        start: 'top top',
-        end: 'bottom bottom',
-        scrub: true
       }
     });
   }
